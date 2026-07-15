@@ -1458,7 +1458,7 @@ class Game {
       if(b==='a') this.interactFlow();
       else if(b==='b') this.menuFlow();
     });
-    this.titleFlow();
+    this.titleFlow(true);
     let last = performance.now();
     const loop = t=>{
       const dt = Math.min(0.05,(t-last)/1000); last=t;
@@ -1586,10 +1586,25 @@ class Game {
   }
 
   // ================= タイトル =================
-  async titleFlow(){
+  async titleFlow(auto){
     this.mode='title';
     this.state=null; this.map=null; this.battle=null; this.fadeAlpha=0;
     RPG.audio.playBgm('title');
+    if(auto){
+      // 自動スタート: タイトルを少し見せてから、セーブがあれば「つづきから」、
+      // なければ「はじめから」を自動で開始する
+      await this.sleep(1500);
+      const st=RPG.load();
+      if(st){
+        this.state=st; this.loadMap(st.map); this.mode='field';
+        RPG.audio.playBgm(this.bgmForMap());
+      }else{
+        this.state=RPG.newState(); this.loadMap('town'); this.mode='field';
+        RPG.audio.playBgm('town');
+        await this.openingFlow();
+      }
+      return;
+    }
     while(true){
       const c=await this.ui.choose(['はじめから','つづきから'],{x:168,y:312,cancel:false});
       if(c===1){
@@ -1703,9 +1718,16 @@ class Game {
     this.busy=true;
     try{
       const s=this.state, ui=this.ui;
+      let goTitle=false;
       while(true){
-        const c=await ui.choose(['つよさ','じゅもん','どうぐ','そうび','セーブ'],{x:16,y:16});
+        const c=await ui.choose(['つよさ','じゅもん','どうぐ','そうび','セーブ','タイトルへ'],{x:16,y:16});
         if(c<0) break;
+        if(c===5){ // タイトルへ
+          await ui.message('セーブしていない ぼうけんは きえてしまうが\nタイトルに もどる?');
+          const ok=await ui.choose(['いいえ','はい'],{x:180,y:60});
+          if(ok!==1) continue;
+          goTitle=true; break;
+        }
         if(c===0){
           const L=RPG.lvl(s);
           const next = s.level>=RPG.DB.MAX_LEVEL ? '---' : String(RPG.DB.LEVELS[s.level].exp - s.exp);
@@ -1782,6 +1804,7 @@ class Game {
           await ui.message('ぼうけんのしょに きろくした!');
         }
       }
+      if(goTitle){ this.titleFlow(); return; }
     } finally { this.busy=false; }
   }
 
