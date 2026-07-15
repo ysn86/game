@@ -86,8 +86,8 @@ html, body {
 }
 #board {
   width: 100%;
+  max-width: 33dvh; /* keeps height (2x width) from exceeding 66dvh, so cells stay square */
   height: auto;
-  max-height: 66dvh;
   aspect-ratio: 1 / 2;
   display: block;
   background: var(--grid);
@@ -204,7 +204,7 @@ html, body {
 @media (max-height: 520px) and (orientation: landscape) {
   .app { max-width: 640px; padding: 8px 12px; gap: 8px; }
   .stage { grid-template-columns: minmax(0, 1fr) 140px; grid-template-rows: 1fr; }
-  #board { max-height: 92dvh; }
+  #board { max-width: 46dvh; }
   .side { grid-template-columns: 1fr; }
   .help { display: none; }
   .touchpad { grid-column: span 2; grid-template-columns: repeat(6, 1fr); }
