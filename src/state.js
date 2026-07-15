@@ -55,6 +55,10 @@ RPG.checkLevelUp = function(s){
       msgs.push(s.name+'は じゅもん '+RPG.DB.SPELLS[now.learn].name+'を おぼえた!');
     }
   }
+  if(msgs.length){ // レベルアップしたら全回復
+    s.hp = RPG.maxhp(s); s.mp = RPG.maxmp(s); s.poisoned = false;
+    msgs.push('からだに ちからが みなぎる!\nHPとMPが ぜんかいふくした!');
+  }
   return msgs;
 };
 

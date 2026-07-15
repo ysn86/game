@@ -113,6 +113,10 @@ class Game {
     if(this.battle){
       if(this.battle.shake>0) this.battle.shake-=dt;
       if(this.battle.flash>0) this.battle.flash-=dt;
+      if(this.battle.fx){
+        this.battle.fx.t-=dt;
+        if(this.battle.fx.t<=0) this.battle.fx=null;
+      }
     }
     if(this.mode==='field' && this.state){
       if(this.step){
@@ -357,6 +361,16 @@ class Game {
           const sp=RPG.DB.SPELLS[s.spells[i]];
           if(!sp.field){ await ui.message('たたかいの ときにしか つかえない。'); continue; }
           if(s.mp<sp.mp){ await ui.message('MPが たりない!'); continue; }
+          if(sp.type==='warp'){ // リターン: 城下町へ帰還
+            s.mp-=sp.mp;
+            RPG.audio.sfx('warp');
+            await this.fadeOut();
+            this.loadMap('town'); s.x=5; s.y=3; s.dir='down';
+            RPG.audio.playBgm('town');
+            await this.fadeIn();
+            await ui.message(sp.name+'を となえた!\nアルテアじょうに もどった!');
+            break;
+          }
           if(s.hp>=RPG.maxhp(s)){ await ui.message('HPは まんたんだ。'); continue; }
           s.mp-=sp.mp;
           RPG.audio.sfx('heal');
@@ -581,7 +595,61 @@ class Game {
         g.drawImage(spr, Math.floor(340-size/2+ox), Math.floor(104-size/2), size, size);
       }
       if(bs.flash>0){ g.fillStyle='rgba(220,0,40,0.35)'; g.fillRect(0,0,VIEW_W,VIEW_H); }
+      if(bs.fx) this.drawBattleFx(g, bs.fx);
     }
+  }
+
+  // 魔法エフェクト描画（対象ウィンドウ内にパーティクルを描く）
+  drawBattleFx(g, fx){
+    const r = fx.target==='player'
+      ? {x:16, y:16, w:180, h:128}
+      : {x:226, y:26, w:228, h:156};
+    const a = Math.max(0, Math.min(1, fx.t/0.8));
+    g.save();
+    g.beginPath(); g.rect(r.x, r.y, r.w, r.h); g.clip();
+    if(fx.type==='fire' || fx.type==='bigfire'){
+      const n = fx.type==='bigfire' ? 42 : 22;
+      for(let i=0;i<n;i++){
+        g.globalAlpha = a;
+        g.fillStyle = ['#ff6020','#ffa030','#ffe060'][i%3];
+        const sz = 4+Math.random()*(fx.type==='bigfire'?12:8);
+        g.fillRect(r.x+Math.random()*r.w, r.y+r.h-Math.random()*r.h*(1.2-a*0.4), sz, sz);
+      }
+      if(fx.type==='bigfire'){
+        g.globalAlpha = a*0.3; g.fillStyle='#f04010'; g.fillRect(r.x,r.y,r.w,r.h);
+      }
+    } else if(fx.type==='spark'){
+      g.globalAlpha = a; g.lineWidth = 3;
+      for(let b=0;b<3;b++){
+        g.strokeStyle = b%2 ? '#ffffff' : '#ffee60';
+        g.beginPath();
+        let x=r.x+20+Math.random()*(r.w-40), y=r.y;
+        g.moveTo(x,y);
+        while(y < r.y+r.h-10){ x+=Math.random()*30-15; y+=12+Math.random()*10; g.lineTo(x,y); }
+        g.stroke();
+      }
+      if(Math.random()<0.4){ g.globalAlpha=a*0.4; g.fillStyle='#ffffff'; g.fillRect(r.x,r.y,r.w,r.h); }
+    } else if(fx.type==='ice'){
+      for(let i=0;i<26;i++){
+        g.globalAlpha = a;
+        g.fillStyle = i%2 ? '#a0e0ff' : '#f0fbff';
+        g.fillRect(r.x+Math.random()*r.w, r.y+((Math.random()+(1-a))*r.h)%r.h, 3, 10);
+      }
+      g.globalAlpha = a*0.22; g.fillStyle='#70b8ff'; g.fillRect(r.x,r.y,r.w,r.h);
+    } else if(fx.type==='heal'){
+      for(let i=0;i<18;i++){
+        g.globalAlpha = a;
+        g.fillStyle = i%2 ? '#80ffa0' : '#ffffff';
+        g.fillRect(r.x+Math.random()*r.w, r.y+r.h-((Math.random()+(1-a))*r.h)%r.h, 4, 4);
+      }
+    } else if(fx.type==='buff'){
+      g.globalAlpha = a*0.9; g.strokeStyle='#60a0ff'; g.lineWidth=4;
+      const m = 6+(1-a)*14;
+      g.strokeRect(r.x+m, r.y+m, r.w-2*m, r.h-2*m);
+      g.globalAlpha = a*0.15; g.fillStyle='#4080ff'; g.fillRect(r.x,r.y,r.w,r.h);
+    }
+    g.restore();
+    g.globalAlpha = 1;
   }
 
   renderTitle(g){

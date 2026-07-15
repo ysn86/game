@@ -211,6 +211,26 @@ class AudioSys {
       case 'flee':      // 逃走
         this.tone('square',620,t,0.3,0.16,140);
         break;
+      case 'spark':     // 雷魔法
+        this.noise(t,0.22,0.4,6000);
+        this.tone('square',1400,t,0.18,0.2,90);
+        this.tone('square',900,t+0.05,0.15,0.16,60);
+        break;
+      case 'ice':       // 氷魔法
+        this.tone('sine',980,t,0.12,0.18,700);
+        this.tone('sine',760,t+0.1,0.12,0.18,520);
+        this.tone('sine',560,t+0.2,0.2,0.18,380);
+        this.noise(t,0.3,0.12,7000);
+        break;
+      case 'buff':      // 防御アップ
+        this.tone('square',392,t,0.1,0.18);
+        this.tone('square',523,t+0.09,0.1,0.18);
+        this.tone('square',659,t+0.18,0.24,0.18);
+        break;
+      case 'warp':      // リターン
+        this.tone('square',180,t,0.45,0.2,1200);
+        this.tone('sine',90,t,0.45,0.18,600);
+        break;
     }
   }
 }

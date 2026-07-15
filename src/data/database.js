@@ -11,23 +11,28 @@ DB.LEVELS = [
   {exp:22,   hp:27,  mp:8,  str:9,  vit:7,  learn:'heal'},
   {exp:45,   hp:33,  mp:12, str:12, vit:9},
   {exp:80,   hp:40,  mp:16, str:15, vit:11, learn:'fire'},
-  {exp:130,  hp:48,  mp:20, str:18, vit:13},
-  {exp:195,  hp:56,  mp:24, str:22, vit:16},
-  {exp:280,  hp:66,  mp:30, str:26, vit:19},
+  {exp:130,  hp:48,  mp:20, str:18, vit:13, learn:'guard'},
+  {exp:195,  hp:56,  mp:24, str:22, vit:16, learn:'spark'},
+  {exp:280,  hp:66,  mp:30, str:26, vit:19, learn:'ret'},
   {exp:390,  hp:78,  mp:36, str:30, vit:22, learn:'heal2'},
   {exp:530,  hp:92,  mp:44, str:35, vit:26},
-  {exp:700,  hp:104, mp:50, str:39, vit:29},
+  {exp:700,  hp:104, mp:50, str:39, vit:29, learn:'blizzard'},
   {exp:900,  hp:116, mp:56, str:43, vit:32},
-  {exp:1130, hp:128, mp:62, str:47, vit:35},
+  {exp:1130, hp:128, mp:62, str:47, vit:35, learn:'inferno'},
   {exp:1400, hp:140, mp:68, str:51, vit:38},
   {exp:1700, hp:155, mp:76, str:56, vit:42},
 ];
 DB.MAX_LEVEL = DB.LEVELS.length;
 
 DB.SPELLS = {
-  heal:  {name:'ヒール',     mp:3, type:'heal',   power:[20,28], field:true},
-  fire:  {name:'ファイア',   mp:4, type:'attack', power:[15,24], field:false},
-  heal2: {name:'ハイヒール', mp:8, type:'heal',   power:[58,75], field:true},
+  heal:     {name:'ヒール',       mp:3,  type:'heal',   power:[20,28], field:true,  fx:'heal'},
+  fire:     {name:'ファイア',     mp:4,  type:'attack', power:[15,24], field:false, fx:'fire'},
+  guard:    {name:'まもり',       mp:4,  type:'buff',   field:false, fx:'buff',  sfx:'buff'},
+  spark:    {name:'スパーク',     mp:7,  type:'attack', power:[26,38], field:false, fx:'spark', sfx:'spark'},
+  ret:      {name:'リターン',     mp:8,  type:'warp',   field:true},
+  heal2:    {name:'ハイヒール',   mp:8,  type:'heal',   power:[58,75], field:true,  fx:'heal'},
+  blizzard: {name:'ブリザド',     mp:10, type:'attack', power:[44,62], field:false, fx:'ice',   sfx:'ice'},
+  inferno:  {name:'インフェルノ', mp:14, type:'attack', power:[68,95], field:false, fx:'bigfire'},
 };
 
 DB.ITEMS = {
@@ -58,8 +63,15 @@ DB.ENEMIES = {
              acts:[['attack',6],['fire',4]], fire:[10,16]},
   eye:      {name:'ダークアイ',   sprite:'eye',      hp:32,  atk:26, def:18, exp:24, gold:38,
              acts:[['attack',7],['fire',3]], fire:[12,18], poison:0.2},
-  boss:     {name:'どうくつのぬし ドラゴネル', sprite:'boss', hp:150, atk:34, def:24, exp:250, gold:500,
-             acts:[['attack',6],['breath',4]], breath:[18,26], boss:true},
+  // ラスボス第1形態: 倒すと第2形態(next)に変身する
+  boss:     {name:'どうくつのぬし ドラゴネル', sprite:'boss', hp:150, atk:34, def:24, exp:0, gold:0,
+             acts:[['attack',6],['breath',4]], breath:[18,26], boss:true, next:'boss2'},
+  // ラスボス第2形態(真のすがた)
+  boss2:    {name:'真・ドラゴネル', sprite:'boss2', hp:220, atk:42, def:28, exp:500, gold:800,
+             acts:[['attack',5],['breath',3],['fire',2]], breath:[26,36], fire:[18,26], boss:true},
+  // レア敵: かたくて じゅもんが きかず すぐ にげるが 経験値がたくさんもらえる
+  metal:    {name:'メタルぷに', sprite:'metal', hp:4, atk:10, def:60, exp:150, gold:30,
+             acts:[['attack',4],['run',6]], spellImmune:true},
 };
 
 RPG.DB = DB;

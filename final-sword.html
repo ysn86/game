@@ -77,23 +77,28 @@ DB.LEVELS = [
   {exp:22,   hp:27,  mp:8,  str:9,  vit:7,  learn:'heal'},
   {exp:45,   hp:33,  mp:12, str:12, vit:9},
   {exp:80,   hp:40,  mp:16, str:15, vit:11, learn:'fire'},
-  {exp:130,  hp:48,  mp:20, str:18, vit:13},
-  {exp:195,  hp:56,  mp:24, str:22, vit:16},
-  {exp:280,  hp:66,  mp:30, str:26, vit:19},
+  {exp:130,  hp:48,  mp:20, str:18, vit:13, learn:'guard'},
+  {exp:195,  hp:56,  mp:24, str:22, vit:16, learn:'spark'},
+  {exp:280,  hp:66,  mp:30, str:26, vit:19, learn:'ret'},
   {exp:390,  hp:78,  mp:36, str:30, vit:22, learn:'heal2'},
   {exp:530,  hp:92,  mp:44, str:35, vit:26},
-  {exp:700,  hp:104, mp:50, str:39, vit:29},
+  {exp:700,  hp:104, mp:50, str:39, vit:29, learn:'blizzard'},
   {exp:900,  hp:116, mp:56, str:43, vit:32},
-  {exp:1130, hp:128, mp:62, str:47, vit:35},
+  {exp:1130, hp:128, mp:62, str:47, vit:35, learn:'inferno'},
   {exp:1400, hp:140, mp:68, str:51, vit:38},
   {exp:1700, hp:155, mp:76, str:56, vit:42},
 ];
 DB.MAX_LEVEL = DB.LEVELS.length;
 
 DB.SPELLS = {
-  heal:  {name:'ヒール',     mp:3, type:'heal',   power:[20,28], field:true},
-  fire:  {name:'ファイア',   mp:4, type:'attack', power:[15,24], field:false},
-  heal2: {name:'ハイヒール', mp:8, type:'heal',   power:[58,75], field:true},
+  heal:     {name:'ヒール',       mp:3,  type:'heal',   power:[20,28], field:true,  fx:'heal'},
+  fire:     {name:'ファイア',     mp:4,  type:'attack', power:[15,24], field:false, fx:'fire'},
+  guard:    {name:'まもり',       mp:4,  type:'buff',   field:false, fx:'buff',  sfx:'buff'},
+  spark:    {name:'スパーク',     mp:7,  type:'attack', power:[26,38], field:false, fx:'spark', sfx:'spark'},
+  ret:      {name:'リターン',     mp:8,  type:'warp',   field:true},
+  heal2:    {name:'ハイヒール',   mp:8,  type:'heal',   power:[58,75], field:true,  fx:'heal'},
+  blizzard: {name:'ブリザド',     mp:10, type:'attack', power:[44,62], field:false, fx:'ice',   sfx:'ice'},
+  inferno:  {name:'インフェルノ', mp:14, type:'attack', power:[68,95], field:false, fx:'bigfire'},
 };
 
 DB.ITEMS = {
@@ -124,8 +129,15 @@ DB.ENEMIES = {
              acts:[['attack',6],['fire',4]], fire:[10,16]},
   eye:      {name:'ダークアイ',   sprite:'eye',      hp:32,  atk:26, def:18, exp:24, gold:38,
              acts:[['attack',7],['fire',3]], fire:[12,18], poison:0.2},
-  boss:     {name:'どうくつのぬし ドラゴネル', sprite:'boss', hp:150, atk:34, def:24, exp:250, gold:500,
-             acts:[['attack',6],['breath',4]], breath:[18,26], boss:true},
+  // ラスボス第1形態: 倒すと第2形態(next)に変身する
+  boss:     {name:'どうくつのぬし ドラゴネル', sprite:'boss', hp:150, atk:34, def:24, exp:0, gold:0,
+             acts:[['attack',6],['breath',4]], breath:[18,26], boss:true, next:'boss2'},
+  // ラスボス第2形態(真のすがた)
+  boss2:    {name:'真・ドラゴネル', sprite:'boss2', hp:220, atk:42, def:28, exp:500, gold:800,
+             acts:[['attack',5],['breath',3],['fire',2]], breath:[26,36], fire:[18,26], boss:true},
+  // レア敵: かたくて じゅもんが きかず すぐ にげるが 経験値がたくさんもらえる
+  metal:    {name:'メタルぷに', sprite:'metal', hp:4, atk:10, def:60, exp:150, gold:30,
+             acts:[['attack',4],['run',6]], spellImmune:true},
 };
 
 RPG.DB = DB;
@@ -175,7 +187,7 @@ world: {
     W,
     W,
   ],
-  encounters:{ rate:0.07, table:[['punipuni',5],['batty',4],['rat',2]] },
+  encounters:{ rate:0.07, table:[['punipuni',5],['batty',4],['rat',2],['metal',0.4]] },
   warps:[
     {x:9,  y:7,  map:'town',  tx:10, ty:18, dir:'up'},
     {x:26, y:15, map:'cave1', tx:1,  ty:1,  dir:'down'},
@@ -250,7 +262,7 @@ cave1: {
     '#................>.#',
     '####################',
   ],
-  encounters:{ rate:0.09, table:[['rat',4],['bone',4],['mage',2]] },
+  encounters:{ rate:0.09, table:[['rat',4],['bone',4],['mage',2],['metal',0.5]] },
   warps:[
     {x:1,  y:1,  map:'world', tx:26, ty:15, dir:'down'},
     {x:17, y:12, map:'cave2', tx:1,  ty:1,  dir:'down'},
@@ -281,7 +293,7 @@ cave2: {
     '#..................#',
     '####################',
   ],
-  encounters:{ rate:0.10, table:[['bone',4],['eye',4],['mage',3]] },
+  encounters:{ rate:0.10, table:[['bone',4],['eye',4],['mage',3],['metal',0.6]] },
   warps:[
     {x:1, y:1, map:'cave1', tx:17, ty:12, dir:'up'},
   ],
@@ -592,7 +604,7 @@ SPRITES.elder    = person('#e8e8e8', '#8a8a96');
 
 // ---- モンスター ----
 const MONSTERS = {};
-MONSTERS.punipuni = pat([
+const PUNI_ROWS = [
   '................',
   '................',
   '................',
@@ -609,7 +621,9 @@ MONSTERS.punipuni = pat([
   '..KKKKKKKKKKKK..',
   '................',
   '................',
-], {K,W,B:'#4878e8'});
+];
+MONSTERS.punipuni = pat(PUNI_ROWS, {K,W,B:'#4878e8'});
+MONSTERS.metal = pat(PUNI_ROWS, {K,W,B:'#c2cad6'}); // レア敵: 銀色のぷに
 MONSTERS.batty = pat([
   '................',
   '................',
@@ -718,6 +732,26 @@ MONSTERS.boss = pat([
   '.K..KKGKKGKK..K.',
   '....KKK..KKK....',
 ], {K,W,G:'#2a9a4a',R:'#c04020'});
+
+// ラスボス第2形態: 黒竜(赤く光る目・金の角・炎の口)
+MONSTERS.boss2 = pat([
+  'KK....KKKK....KK',
+  'KDK..KYKKYK..KDK',
+  'KDDK.KYYYYK.KDDK',
+  'KDDDKDDDDDDKDDDK',
+  '.KDDDDDDDDDDDDK.',
+  '.KDRRDDDDDDRRDK.',
+  '.KDRRDDDDDDRRDK.',
+  '.KDDDDDDDDDDDDK.',
+  '.KDWKWKWWKWKWDK.',
+  '.KDDFFFFFFFFDDK.',
+  '..KDDDDDDDDDDK..',
+  '.KDDKDDDDDDKDDK.',
+  'KDDK.KDDDDK.KDDK',
+  'KDK..KDDDDK..KDK',
+  '.K..KKDKKDKK..K.',
+  '....KKK..KKK....',
+], {K,W,D:'#3a2c50',R:'#f02020',Y:'#f0c030',F:'#ff7020'});
 
 RPG.TILESET = TILESET;
 RPG.SPRITES = SPRITES;
@@ -937,6 +971,26 @@ class AudioSys {
         break;
       case 'flee':      // 逃走
         this.tone('square',620,t,0.3,0.16,140);
+        break;
+      case 'spark':     // 雷魔法
+        this.noise(t,0.22,0.4,6000);
+        this.tone('square',1400,t,0.18,0.2,90);
+        this.tone('square',900,t+0.05,0.15,0.16,60);
+        break;
+      case 'ice':       // 氷魔法
+        this.tone('sine',980,t,0.12,0.18,700);
+        this.tone('sine',760,t+0.1,0.12,0.18,520);
+        this.tone('sine',560,t+0.2,0.2,0.18,380);
+        this.noise(t,0.3,0.12,7000);
+        break;
+      case 'buff':      // 防御アップ
+        this.tone('square',392,t,0.1,0.18);
+        this.tone('square',523,t+0.09,0.1,0.18);
+        this.tone('square',659,t+0.18,0.24,0.18);
+        break;
+      case 'warp':      // リターン
+        this.tone('square',180,t,0.45,0.2,1200);
+        this.tone('sine',90,t,0.45,0.18,600);
         break;
     }
   }
@@ -1206,6 +1260,10 @@ RPG.checkLevelUp = function(s){
       msgs.push(s.name+'は じゅもん '+RPG.DB.SPELLS[now.learn].name+'を おぼえた!');
     }
   }
+  if(msgs.length){ // レベルアップしたら全回復
+    s.hp = RPG.maxhp(s); s.mp = RPG.maxmp(s); s.poisoned = false;
+    msgs.push('からだに ちからが みなぎる!\nHPとMPが ぜんかいふくした!');
+  }
   return msgs;
 };
 
@@ -1233,7 +1291,7 @@ function physDamage(atk, def){
 
 // 戻り値: 'win' | 'lose' | 'flee'
 RPG.runBattle = async function(game, enemyId){
-  const E = RPG.DB.ENEMIES[enemyId];
+  let E = RPG.DB.ENEMIES[enemyId];
   const ui = game.ui, s = game.state;
   const bs = { enemy:E, ehp:E.hp, visible:true, shake:0, flash:0 };
   game.battle = bs;
@@ -1280,21 +1338,36 @@ RPG.runBattle = async function(game, enemyId){
         const i = await ui.choose(list, SUB_POS);
         if(i<0) continue;
         const spId = s.spells[i], sp = RPG.DB.SPELLS[spId];
+        if(sp.type==='warp'){ await ui.message('たたかいの さいちゅうには つかえない!'); continue; }
         if(s.mp < sp.mp){ await ui.message('MPが たりない!'); continue; }
         acted = true;
         s.mp -= sp.mp;
         await ui.message(s.name+'は '+sp.name+'を となえた!');
         if(sp.type==='heal'){
+          bs.fx = {type:'heal', target:'player', t:0.7};
           RPG.audio.sfx('heal');
+          await game.sleep(550);
           const v = Math.min(R(sp.power[0],sp.power[1]), RPG.maxhp(s)-s.hp);
           s.hp += v;
           await ui.message(s.name+'の HPが '+v+' かいふくした!');
+        }else if(sp.type==='buff'){
+          bs.fx = {type:'buff', target:'player', t:0.8};
+          RPG.audio.sfx('buff');
+          await game.sleep(600);
+          bs.guard = true;
+          await ui.message('ひかりのまくが '+s.name+'を つつんだ!\nしゅびりょくが あがった!');
         }else{
-          RPG.audio.sfx('spell');
-          const dmg = R(sp.power[0],sp.power[1]);
-          bs.ehp -= dmg; bs.shake = 0.35;
-          await game.sleep(250);
-          await ui.message(E.name+'に '+dmg+'の ダメージ!');
+          bs.fx = {type:sp.fx||'fire', target:'enemy', t:0.8};
+          RPG.audio.sfx(sp.sfx||'spell');
+          await game.sleep(600);
+          if(E.spellImmune){
+            await ui.message('しかし じゅもんは きかなかった!');
+          }else{
+            const dmg = R(sp.power[0],sp.power[1]);
+            bs.ehp -= dmg; bs.shake = 0.35;
+            await game.sleep(250);
+            await ui.message(E.name+'に '+dmg+'の ダメージ!');
+          }
         }
       }
       else if(c===2){ // どうぐ
@@ -1331,6 +1404,21 @@ RPG.runBattle = async function(game, enemyId){
     if(result) break;
 
     if(bs.ehp<=0){
+      if(E.next){ // ボス第2形態への変身
+        const N = RPG.DB.ENEMIES[E.next];
+        RPG.audio.sfx('crit');
+        bs.shake = 0.6;
+        await ui.message(E.name+'を おいつめた!');
+        bs.fx = {type:'bigfire', target:'enemy', t:1.2};
+        RPG.audio.sfx('spell');
+        await game.sleep(800);
+        await ui.message(E.name+'の からだが くろいほのおに つつまれた!\nすがたが かわっていく…!!');
+        E = N; bs.enemy = N; bs.ehp = N.hp;
+        bs.visible = true; bs.shake = 0.5;
+        RPG.audio.sfx('crit');
+        await ui.message(N.name+'が しんのすがたを あらわした!!');
+        continue; // プレイヤーのターンから再開
+      }
       bs.visible = false;
       await ui.message(E.name+'を たおした!');
       result = 'win';
@@ -1350,7 +1438,7 @@ RPG.runBattle = async function(game, enemyId){
         RPG.audio.sfx('miss');
         await ui.message(s.name+'は ひらりと みをかわした!');
       }else{
-        const dmg = physDamage(E.atk, RPG.def(s));
+        const dmg = physDamage(E.atk, RPG.def(s)*(bs.guard?1.5:1));
         s.hp = Math.max(0, s.hp-dmg);
         RPG.audio.sfx('phit');
         bs.flash = 0.3;
@@ -1364,6 +1452,7 @@ RPG.runBattle = async function(game, enemyId){
     }else if(act==='fire'){
       const dmg = R(E.fire[0], E.fire[1]);
       s.hp = Math.max(0, s.hp-dmg);
+      bs.fx = {type:'fire', target:'player', t:0.7};
       RPG.audio.sfx('spell');
       RPG.audio.sfx('phit');
       bs.flash = 0.3;
@@ -1371,10 +1460,16 @@ RPG.runBattle = async function(game, enemyId){
     }else if(act==='breath'){
       const dmg = R(E.breath[0], E.breath[1]);
       s.hp = Math.max(0, s.hp-dmg);
+      bs.fx = {type:'bigfire', target:'player', t:0.8};
       RPG.audio.sfx('spell');
       RPG.audio.sfx('phit');
       bs.flash = 0.35;
       await ui.message(E.name+'は ほのおを はいた!\n'+s.name+'は '+dmg+'の ダメージを うけた!');
+    }else if(act==='run'){
+      RPG.audio.sfx('flee');
+      bs.visible = false;
+      await ui.message(E.name+'は にげだした!');
+      result = 'enemyfled';
     }
 
     if(s.hp<=0){ result='lose'; break; }
@@ -1512,6 +1607,10 @@ class Game {
     if(this.battle){
       if(this.battle.shake>0) this.battle.shake-=dt;
       if(this.battle.flash>0) this.battle.flash-=dt;
+      if(this.battle.fx){
+        this.battle.fx.t-=dt;
+        if(this.battle.fx.t<=0) this.battle.fx=null;
+      }
     }
     if(this.mode==='field' && this.state){
       if(this.step){
@@ -1756,6 +1855,16 @@ class Game {
           const sp=RPG.DB.SPELLS[s.spells[i]];
           if(!sp.field){ await ui.message('たたかいの ときにしか つかえない。'); continue; }
           if(s.mp<sp.mp){ await ui.message('MPが たりない!'); continue; }
+          if(sp.type==='warp'){ // リターン: 城下町へ帰還
+            s.mp-=sp.mp;
+            RPG.audio.sfx('warp');
+            await this.fadeOut();
+            this.loadMap('town'); s.x=5; s.y=3; s.dir='down';
+            RPG.audio.playBgm('town');
+            await this.fadeIn();
+            await ui.message(sp.name+'を となえた!\nアルテアじょうに もどった!');
+            break;
+          }
           if(s.hp>=RPG.maxhp(s)){ await ui.message('HPは まんたんだ。'); continue; }
           s.mp-=sp.mp;
           RPG.audio.sfx('heal');
@@ -1980,7 +2089,61 @@ class Game {
         g.drawImage(spr, Math.floor(340-size/2+ox), Math.floor(104-size/2), size, size);
       }
       if(bs.flash>0){ g.fillStyle='rgba(220,0,40,0.35)'; g.fillRect(0,0,VIEW_W,VIEW_H); }
+      if(bs.fx) this.drawBattleFx(g, bs.fx);
     }
+  }
+
+  // 魔法エフェクト描画（対象ウィンドウ内にパーティクルを描く）
+  drawBattleFx(g, fx){
+    const r = fx.target==='player'
+      ? {x:16, y:16, w:180, h:128}
+      : {x:226, y:26, w:228, h:156};
+    const a = Math.max(0, Math.min(1, fx.t/0.8));
+    g.save();
+    g.beginPath(); g.rect(r.x, r.y, r.w, r.h); g.clip();
+    if(fx.type==='fire' || fx.type==='bigfire'){
+      const n = fx.type==='bigfire' ? 42 : 22;
+      for(let i=0;i<n;i++){
+        g.globalAlpha = a;
+        g.fillStyle = ['#ff6020','#ffa030','#ffe060'][i%3];
+        const sz = 4+Math.random()*(fx.type==='bigfire'?12:8);
+        g.fillRect(r.x+Math.random()*r.w, r.y+r.h-Math.random()*r.h*(1.2-a*0.4), sz, sz);
+      }
+      if(fx.type==='bigfire'){
+        g.globalAlpha = a*0.3; g.fillStyle='#f04010'; g.fillRect(r.x,r.y,r.w,r.h);
+      }
+    } else if(fx.type==='spark'){
+      g.globalAlpha = a; g.lineWidth = 3;
+      for(let b=0;b<3;b++){
+        g.strokeStyle = b%2 ? '#ffffff' : '#ffee60';
+        g.beginPath();
+        let x=r.x+20+Math.random()*(r.w-40), y=r.y;
+        g.moveTo(x,y);
+        while(y < r.y+r.h-10){ x+=Math.random()*30-15; y+=12+Math.random()*10; g.lineTo(x,y); }
+        g.stroke();
+      }
+      if(Math.random()<0.4){ g.globalAlpha=a*0.4; g.fillStyle='#ffffff'; g.fillRect(r.x,r.y,r.w,r.h); }
+    } else if(fx.type==='ice'){
+      for(let i=0;i<26;i++){
+        g.globalAlpha = a;
+        g.fillStyle = i%2 ? '#a0e0ff' : '#f0fbff';
+        g.fillRect(r.x+Math.random()*r.w, r.y+((Math.random()+(1-a))*r.h)%r.h, 3, 10);
+      }
+      g.globalAlpha = a*0.22; g.fillStyle='#70b8ff'; g.fillRect(r.x,r.y,r.w,r.h);
+    } else if(fx.type==='heal'){
+      for(let i=0;i<18;i++){
+        g.globalAlpha = a;
+        g.fillStyle = i%2 ? '#80ffa0' : '#ffffff';
+        g.fillRect(r.x+Math.random()*r.w, r.y+r.h-((Math.random()+(1-a))*r.h)%r.h, 4, 4);
+      }
+    } else if(fx.type==='buff'){
+      g.globalAlpha = a*0.9; g.strokeStyle='#60a0ff'; g.lineWidth=4;
+      const m = 6+(1-a)*14;
+      g.strokeRect(r.x+m, r.y+m, r.w-2*m, r.h-2*m);
+      g.globalAlpha = a*0.15; g.fillStyle='#4080ff'; g.fillRect(r.x,r.y,r.w,r.h);
+    }
+    g.restore();
+    g.globalAlpha = 1;
   }
 
   renderTitle(g){

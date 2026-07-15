@@ -41,7 +41,7 @@ world: {
     W,
     W,
   ],
-  encounters:{ rate:0.07, table:[['punipuni',5],['batty',4],['rat',2]] },
+  encounters:{ rate:0.07, table:[['punipuni',5],['batty',4],['rat',2],['metal',0.4]] },
   warps:[
     {x:9,  y:7,  map:'town',  tx:10, ty:18, dir:'up'},
     {x:26, y:15, map:'cave1', tx:1,  ty:1,  dir:'down'},
@@ -116,7 +116,7 @@ cave1: {
     '#................>.#',
     '####################',
   ],
-  encounters:{ rate:0.09, table:[['rat',4],['bone',4],['mage',2]] },
+  encounters:{ rate:0.09, table:[['rat',4],['bone',4],['mage',2],['metal',0.5]] },
   warps:[
     {x:1,  y:1,  map:'world', tx:26, ty:15, dir:'down'},
     {x:17, y:12, map:'cave2', tx:1,  ty:1,  dir:'down'},
@@ -147,7 +147,7 @@ cave2: {
     '#..................#',
     '####################',
   ],
-  encounters:{ rate:0.10, table:[['bone',4],['eye',4],['mage',3]] },
+  encounters:{ rate:0.10, table:[['bone',4],['eye',4],['mage',3],['metal',0.6]] },
   warps:[
     {x:1, y:1, map:'cave1', tx:17, ty:12, dir:'up'},
   ],

@@ -282,7 +282,7 @@ SPRITES.elder    = person('#e8e8e8', '#8a8a96');
 
 // ---- モンスター ----
 const MONSTERS = {};
-MONSTERS.punipuni = pat([
+const PUNI_ROWS = [
   '................',
   '................',
   '................',
@@ -299,7 +299,9 @@ MONSTERS.punipuni = pat([
   '..KKKKKKKKKKKK..',
   '................',
   '................',
-], {K,W,B:'#4878e8'});
+];
+MONSTERS.punipuni = pat(PUNI_ROWS, {K,W,B:'#4878e8'});
+MONSTERS.metal = pat(PUNI_ROWS, {K,W,B:'#c2cad6'}); // レア敵: 銀色のぷに
 MONSTERS.batty = pat([
   '................',
   '................',
@@ -408,6 +410,26 @@ MONSTERS.boss = pat([
   '.K..KKGKKGKK..K.',
   '....KKK..KKK....',
 ], {K,W,G:'#2a9a4a',R:'#c04020'});
+
+// ラスボス第2形態: 黒竜(赤く光る目・金の角・炎の口)
+MONSTERS.boss2 = pat([
+  'KK....KKKK....KK',
+  'KDK..KYKKYK..KDK',
+  'KDDK.KYYYYK.KDDK',
+  'KDDDKDDDDDDKDDDK',
+  '.KDDDDDDDDDDDDK.',
+  '.KDRRDDDDDDRRDK.',
+  '.KDRRDDDDDDRRDK.',
+  '.KDDDDDDDDDDDDK.',
+  '.KDWKWKWWKWKWDK.',
+  '.KDDFFFFFFFFDDK.',
+  '..KDDDDDDDDDDK..',
+  '.KDDKDDDDDDKDDK.',
+  'KDDK.KDDDDK.KDDK',
+  'KDK..KDDDDK..KDK',
+  '.K..KKDKKDKK..K.',
+  '....KKK..KKK....',
+], {K,W,D:'#3a2c50',R:'#f02020',Y:'#f0c030',F:'#ff7020'});
 
 RPG.TILESET = TILESET;
 RPG.SPRITES = SPRITES;
