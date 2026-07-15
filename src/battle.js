@@ -32,14 +32,17 @@ RPG.runBattle = async function(game, enemyId){
         acted = true;
         await ui.message(s.name+'の こうげき!');
         if(Math.random() < 1/16){
+          RPG.audio.sfx('miss');
           await ui.message('ミス! ダメージを あたえられない!');
         }else{
           let dmg, crit = Math.random() < 1/24;
           if(crit){
             dmg = Math.max(1, Math.floor(RPG.atk(s)*(0.8+Math.random()*0.25)));
+            RPG.audio.sfx('crit');
             await ui.message('かいしんの いちげき!!');
           }else{
             dmg = physDamage(RPG.atk(s), E.def);
+            RPG.audio.sfx('hit');
           }
           bs.ehp -= dmg; bs.shake = 0.35;
           await game.sleep(250);
@@ -60,10 +63,12 @@ RPG.runBattle = async function(game, enemyId){
         s.mp -= sp.mp;
         await ui.message(s.name+'は '+sp.name+'を となえた!');
         if(sp.type==='heal'){
+          RPG.audio.sfx('heal');
           const v = Math.min(R(sp.power[0],sp.power[1]), RPG.maxhp(s)-s.hp);
           s.hp += v;
           await ui.message(s.name+'の HPが '+v+' かいふくした!');
         }else{
+          RPG.audio.sfx('spell');
           const dmg = R(sp.power[0],sp.power[1]);
           bs.ehp -= dmg; bs.shake = 0.35;
           await game.sleep(250);
@@ -78,13 +83,14 @@ RPG.runBattle = async function(game, enemyId){
         const item = RPG.DB.ITEMS[usable[i].id];
         acted = true;
         if(item.type==='heal'){
+          RPG.audio.sfx('heal');
           const v = Math.min(R(item.power[0],item.power[1]), RPG.maxhp(s)-s.hp);
           s.hp += v;
           RPG.removeItem(s, usable[i].id);
           await ui.message(s.name+'は '+item.name+'を つかった!\nHPが '+v+' かいふくした!');
         }else if(item.type==='cure'){
           RPG.removeItem(s, usable[i].id);
-          if(s.poisoned){ s.poisoned=false; await ui.message('どくが きえさった!'); }
+          if(s.poisoned){ s.poisoned=false; RPG.audio.sfx('heal'); await ui.message('どくが きえさった!'); }
           else await ui.message('しかし なにも おこらなかった。');
         }
       }
@@ -95,7 +101,7 @@ RPG.runBattle = async function(game, enemyId){
           await ui.message('しかし まわりこまれてしまった!');
         }else{
           const chance = Math.min(0.9, Math.max(0.3, 0.55 + (s.level - E.exp/8)*0.03));
-          if(Math.random() < chance){ result='flee'; break; }
+          if(Math.random() < chance){ RPG.audio.sfx('flee'); result='flee'; break; }
           await ui.message('しかし まわりこまれてしまった!');
         }
       }
@@ -119,10 +125,12 @@ RPG.runBattle = async function(game, enemyId){
     if(act==='attack'){
       await ui.message(E.name+'の こうげき!');
       if(Math.random() < 1/20){
+        RPG.audio.sfx('miss');
         await ui.message(s.name+'は ひらりと みをかわした!');
       }else{
         const dmg = physDamage(E.atk, RPG.def(s));
         s.hp = Math.max(0, s.hp-dmg);
+        RPG.audio.sfx('phit');
         bs.flash = 0.3;
         await game.sleep(250);
         await ui.message(s.name+'は '+dmg+'の ダメージを うけた!');
@@ -134,11 +142,15 @@ RPG.runBattle = async function(game, enemyId){
     }else if(act==='fire'){
       const dmg = R(E.fire[0], E.fire[1]);
       s.hp = Math.max(0, s.hp-dmg);
+      RPG.audio.sfx('spell');
+      RPG.audio.sfx('phit');
       bs.flash = 0.3;
       await ui.message(E.name+'は ほのおのじゅもんを となえた!\n'+s.name+'は '+dmg+'の ダメージを うけた!');
     }else if(act==='breath'){
       const dmg = R(E.breath[0], E.breath[1]);
       s.hp = Math.max(0, s.hp-dmg);
+      RPG.audio.sfx('spell');
+      RPG.audio.sfx('phit');
       bs.flash = 0.35;
       await ui.message(E.name+'は ほのおを はいた!\n'+s.name+'は '+dmg+'の ダメージを うけた!');
     }
@@ -148,9 +160,12 @@ RPG.runBattle = async function(game, enemyId){
 
   // ---- 結果処理 ----
   if(result==='win'){
+    RPG.audio.jingle('victory');
     s.exp += E.exp; s.gold += E.gold;
     await ui.message('けいけんち '+E.exp+' を かくとく!\n'+E.gold+'ゴールドを てにいれた!');
-    for(const m of RPG.checkLevelUp(s)) await ui.message(m);
+    const lvMsgs = RPG.checkLevelUp(s);
+    if(lvMsgs.length) RPG.audio.jingle('levelup'); // レベルアップのファンファーレ
+    for(const m of lvMsgs) await ui.message(m);
   }
 
   game.battle = null;

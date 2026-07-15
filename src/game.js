@@ -70,6 +70,10 @@ class Game {
   }
 
   sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+  bgmForMap(){
+    const t=this.map ? this.map.theme : 'field';
+    return t==='town' ? 'town' : t==='cave' ? 'cave' : 'field';
+  }
   async fadeOut(){ for(let a=0;a<=1.01;a+=0.12){ this.fadeAlpha=Math.min(1,a); await this.sleep(16);} }
   async fadeIn(){ for(let a=1;a>=0;a-=0.12){ this.fadeAlpha=Math.max(0,a); await this.sleep(16);} this.fadeAlpha=0; }
 
@@ -149,6 +153,7 @@ class Game {
     this.busy=true;
     await this.fadeOut();
     this.loadMap(w.map);
+    RPG.audio.playBgm(this.bgmForMap());
     this.state.x=w.tx; this.state.y=w.ty;
     if(w.dir) this.state.dir=w.dir;
     await this.fadeIn();
@@ -157,12 +162,15 @@ class Game {
 
   async encounterFlow(enemyId){
     this.busy=true;
+    RPG.audio.sfx('encounter');
     for(let i=0;i<3;i++){
       this.whiteFlash=true; await this.sleep(70);
       this.whiteFlash=false; await this.sleep(70);
     }
+    RPG.audio.playBgm('battle');
     const r = await RPG.runBattle(this, enemyId);
     if(r==='lose') await this.gameOverFlow();
+    else RPG.audio.playBgm(this.bgmForMap());
     this.busy=false;
   }
 
@@ -173,6 +181,7 @@ class Game {
     s.hp=RPG.maxhp(s); s.mp=RPG.maxmp(s); s.poisoned=false;
     this.loadMap('town'); s.x=5; s.y=3; s.dir='up';
     this.mode='field';
+    RPG.audio.playBgm('town');
     await this.fadeIn();
     await this.ui.message('※「おお '+s.name+'よ しんでしまうとは なにごとだ!\nそなたに もういちど きかいを あたえよう。\n(しょじきんが はんぶんに なった)');
   }
@@ -181,15 +190,18 @@ class Game {
   async titleFlow(){
     this.mode='title';
     this.state=null; this.map=null; this.battle=null; this.fadeAlpha=0;
+    RPG.audio.playBgm('title');
     while(true){
       const c=await this.ui.choose(['はじめから','つづきから'],{x:168,y:312,cancel:false});
       if(c===1){
         const st=RPG.load();
         if(!st){ await this.ui.message('ぼうけんのしょが みつかりません。'); continue; }
         this.state=st; this.loadMap(st.map); this.mode='field';
+        RPG.audio.playBgm(this.bgmForMap());
         return;
       }
       this.state=RPG.newState(); this.loadMap('town'); this.mode='field';
+      RPG.audio.playBgm('town');
       await this.openingFlow();
       return;
     }
@@ -206,6 +218,7 @@ class Game {
     await this.fadeOut();
     this.mode='ending';
     this.fadeAlpha=0;
+    RPG.audio.playBgm('ending');
     await new Promise(res=>{
       const fn=b=>{
         if(b!=='a') return;
@@ -274,8 +287,10 @@ class Game {
   async bossFlow(){
     const ui=this.ui, s=this.state;
     await ui.message('※「グオオオ… よくぞ ここまで きたな にんげんよ!\n《ひかりのたから》は わたさぬ!!');
+    RPG.audio.playBgm('battle');
     const r=await RPG.runBattle(this,'boss');
     if(r==='lose'){ await this.gameOverFlow(); return; }
+    RPG.audio.playBgm(this.bgmForMap());
     if(r==='win'){
       s.flags.boss=1;
       RPG.addItem(s,'treasure');
@@ -322,6 +337,7 @@ class Game {
           if(s.mp<sp.mp){ await ui.message('MPが たりない!'); continue; }
           if(s.hp>=RPG.maxhp(s)){ await ui.message('HPは まんたんだ。'); continue; }
           s.mp-=sp.mp;
+          RPG.audio.sfx('heal');
           const v=Math.min(RPG.rand(sp.power[0],sp.power[1]), RPG.maxhp(s)-s.hp);
           s.hp+=v;
           await ui.message(sp.name+'を となえた!\nHPが '+v+' かいふくした!');
@@ -333,12 +349,13 @@ class Game {
           const id=s.items[i].id, item=RPG.DB.ITEMS[id];
           if(item.type==='heal'){
             if(s.hp>=RPG.maxhp(s)){ await ui.message('HPは まんたんだ。'); continue; }
+            RPG.audio.sfx('heal');
             const v=Math.min(RPG.rand(item.power[0],item.power[1]), RPG.maxhp(s)-s.hp);
             s.hp+=v; RPG.removeItem(s,id);
             await ui.message(item.name+'を つかった!\nHPが '+v+' かいふくした!');
           }else if(item.type==='cure'){
             RPG.removeItem(s,id);
-            if(s.poisoned){ s.poisoned=false; await ui.message('どくが きえさった!'); }
+            if(s.poisoned){ s.poisoned=false; RPG.audio.sfx('heal'); await ui.message('どくが きえさった!'); }
             else await ui.message('しかし なにも おこらなかった。');
           }else if(id==='key'){
             await ui.message('カギのかかった とびらのまえで\nしらべると つかえる。');
@@ -550,12 +567,12 @@ class Game {
     g.font="20px 'MS Gothic',monospace"; g.fillStyle='#8090ff';
     g.fillText('― レトロRPG ―', VIEW_W/2, 72);
     g.font="40px 'MS Gothic',monospace"; g.fillStyle='#f0e060';
-    g.fillText('ひかりのたから', VIEW_W/2, 110);
+    g.fillText('ファイナルソード', VIEW_W/2, 110);
     g.imageSmoothingEnabled=false;
     g.drawImage(RPG.SPRITES.hero.down, VIEW_W/2-32, 180, 64, 64);
     g.font="14px 'MS Gothic',monospace"; g.fillStyle='#c0c0c0';
     g.fillText('矢印キー:いどう  Z/Enter:けってい  X/Esc:キャンセル・メニュー', VIEW_W/2, 262);
-    g.fillText('スマホは がめんの ボタンで そうさ', VIEW_W/2, 284);
+    g.fillText('スマホは がめんの ボタンで そうさ  (M:サウンドON/OFF)', VIEW_W/2, 284);
     g.textAlign='left';
   }
 

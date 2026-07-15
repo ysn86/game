@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>ひかりのたから - レトロRPG</title>
+<title>ファイナルソード - レトロRPG</title>
 <style>
   html,body{
     margin:0; padding:0; background:#000; color:#fff;
@@ -725,6 +725,227 @@ RPG.MONSTERS = MONSTERS;
 })();
 </script>
 <script>
+// サウンド（Web Audio APIによるファミコン風BGM・効果音の自前生成）
+// 外部音源ファイルは使わず、矩形波・三角波・ノイズをその場で合成する
+(function(){
+window.RPG = window.RPG || {};
+
+function freq(name){ // 'C#4' → 周波数
+  const m = /^([A-G])(#?)(-?\d)$/.exec(name);
+  const base = {C:0,D:2,E:4,F:5,G:7,A:9,B:11}[m[1]] + (m[2]?1:0);
+  const midi = (parseInt(m[3],10)+1)*12 + base;
+  return 440*Math.pow(2,(midi-69)/12);
+}
+
+// ---- 楽曲データ ----
+// notes: [音名(0=休符), 拍数] / lead=矩形波, bass=三角波
+const SONGS = {
+  title: { bpm:100,
+    lead:[['C4',.5],['E4',.5],['G4',.5],['B4',.5],['C5',2],
+          ['A3',.5],['C4',.5],['E4',.5],['G4',.5],['A4',2],
+          ['F3',.5],['A3',.5],['C4',.5],['E4',.5],['F4',2],
+          ['G3',.5],['B3',.5],['D4',.5],['F4',.5],['G4',2]],
+    bass:[['C3',4],['A2',4],['F2',4],['G2',4]] },
+  field: { bpm:112,
+    lead:[['A4',.5],['B4',.5],['C5',.5],['E5',.5],['D5',.5],['C5',.5],['B4',1],
+          ['G4',.5],['A4',.5],['B4',.5],['D5',.5],['C5',.5],['B4',.5],['A4',1],
+          ['A4',.5],['B4',.5],['C5',.5],['E5',.5],['G5',.5],['F5',.5],['E5',1],
+          ['D5',.5],['E5',.5],['F5',.5],['E5',.5],['D5',.5],['B4',.5],['A4',1]],
+    bass:[['A2',1],['E3',1],['A2',1],['E3',1],
+          ['G2',1],['D3',1],['G2',1],['D3',1],
+          ['F2',1],['C3',1],['F2',1],['C3',1],
+          ['E2',1],['B2',1],['E2',1],['B2',1]] },
+  town: { bpm:104,
+    lead:[['C5',.5],['E5',.5],['G5',.5],['E5',.5],['F5',.5],['E5',.5],['D5',1],
+          ['D5',.5],['F5',.5],['A5',.5],['F5',.5],['G5',.5],['F5',.5],['E5',1],
+          ['E5',.5],['D5',.5],['C5',.5],['D5',.5],['E5',.5],['F5',.5],['G5',1],
+          ['A5',.5],['G5',.5],['F5',.5],['D5',.5],['E5',.5],['C5',1.5]],
+    bass:[['C3',1],['G2',1],['C3',1],['G2',1],
+          ['F2',1],['C3',1],['F2',1],['C3',1],
+          ['C3',1],['G2',1],['E3',1],['G2',1],
+          ['G2',1],['D3',1],['G2',1],['C3',1]] },
+  cave: { bpm:84,
+    lead:[['D4',1],['F4',1],['E4',1],['C4',1],
+          ['D4',1],['F4',1],['A4',1],['G4',1],
+          ['F4',1],['E4',1],['D4',1],['C#4',1],
+          ['D4',2],[0,2]],
+    bass:[['D2',2],['A2',2],['C2',2],['G2',2],
+          ['A#2',2],['F2',2],['A2',2],['A2',2]] },
+  battle: { bpm:152,
+    lead:[['A4',.5],['A4',.5],['C5',.5],['A4',.5],['D5',.5],['C5',.5],['A4',.5],['G4',.5],
+          ['A4',.5],['A4',.5],['C5',.5],['E5',.5],['D5',.5],['C5',.5],['D5',.5],['E5',.5],
+          ['F5',.5],['E5',.5],['D5',.5],['C5',.5],['B4',.5],['C5',.5],['D5',.5],['B4',.5],
+          ['A4',.5],['G4',.5],['A4',.5],['B4',.5],['C5',.5],['B4',.5],['A4',.5],['G#4',.5]],
+    bass:[['A2',.5],['A2',.5],['A2',.5],['A2',.5],['A2',.5],['A2',.5],['G2',.5],['G2',.5],
+          ['A2',.5],['A2',.5],['A2',.5],['A2',.5],['A2',.5],['A2',.5],['G2',.5],['G2',.5],
+          ['F2',.5],['F2',.5],['F2',.5],['F2',.5],['G2',.5],['G2',.5],['G2',.5],['G2',.5],
+          ['E2',.5],['E2',.5],['E2',.5],['E2',.5],['E2',.5],['E2',.5],['G#2',.5],['G#2',.5]] },
+  ending: { bpm:88,
+    lead:[['E5',1],['D5',1],['C5',1],['G4',1],
+          ['A4',1],['C5',1],['G4',2],
+          ['F4',1],['G4',1],['A4',1],['C5',1],
+          ['D5',1],['C5',1],['C5',2]],
+    bass:[['C3',2],['G2',2],['A2',2],['E2',2],
+          ['F2',2],['C3',2],['G2',2],['C3',2]] },
+};
+
+// ジングル: [音名, 開始秒, 長さ秒]
+const JINGLES = {
+  victory: [['G4',0,.13],['C5',.13,.13],['E5',.26,.13],['G5',.39,.45],['E5',.84,.14],['G5',.98,.6]],
+  levelup: [['C5',0,.1],['D5',.1,.1],['E5',.2,.1],['G5',.3,.1],
+            ['C6',.4,.7],['C5',.4,.7],['E5',.4,.7],['G5',.4,.7]],
+};
+
+class AudioSys {
+  constructor(){
+    this.ctx = null;
+    this.master = null;
+    this.muted = false;
+    this.want = null;   // 起動前に指定されたBGM
+    this.bgm = null;
+  }
+
+  // ブラウザの自動再生制限のため、最初のキー/タッチ操作で初期化する
+  unlock(){
+    if(this.ctx){
+      if(this.ctx.state==='suspended') this.ctx.resume();
+      return;
+    }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if(!AC) return;
+    this.ctx = new AC();
+    this.master = this.ctx.createGain();
+    this.master.gain.value = this.muted ? 0 : 0.5;
+    this.master.connect(this.ctx.destination);
+    if(this.want) this.playBgm(this.want, true);
+  }
+  toggleMute(){
+    this.muted = !this.muted;
+    if(this.master) this.master.gain.value = this.muted ? 0 : 0.5;
+    return this.muted;
+  }
+
+  tone(type, f0, t0, dur, vol, f1){
+    const o=this.ctx.createOscillator(), g=this.ctx.createGain();
+    o.type=type;
+    o.frequency.setValueAtTime(f0, t0);
+    if(f1) o.frequency.exponentialRampToValueAtTime(Math.max(20,f1), t0+dur);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.linearRampToValueAtTime(vol, t0+0.012);
+    g.gain.setValueAtTime(vol, t0+dur*0.65);
+    g.gain.linearRampToValueAtTime(0.0001, t0+dur);
+    o.connect(g); g.connect(this.master);
+    o.start(t0); o.stop(t0+dur+0.03);
+  }
+  noise(t0, dur, vol, fc){
+    const n = Math.floor(this.ctx.sampleRate*dur)+1;
+    const buf = this.ctx.createBuffer(1, n, this.ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for(let i=0;i<n;i++) d[i] = Math.random()*2-1;
+    const src=this.ctx.createBufferSource(); src.buffer=buf;
+    const f=this.ctx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=fc||2000;
+    const g=this.ctx.createGain();
+    g.gain.setValueAtTime(vol, t0);
+    g.gain.linearRampToValueAtTime(0.0001, t0+dur);
+    src.connect(f); f.connect(g); g.connect(this.master);
+    src.start(t0); src.stop(t0+dur+0.02);
+  }
+
+  // ---- BGM ----
+  playBgm(name, force){
+    this.want = name;
+    if(!this.ctx) return;
+    if(!force && this.bgm && this.bgm.name===name) return;
+    this.stopBgm();
+    const song = SONGS[name];
+    if(!song) return;
+    const beat = 60/song.bpm;
+    const mk=(notes,type,vol)=>({
+      seq: notes.map(([n,b])=>({f:n?freq(n):0, d:b*beat})),
+      type, vol, idx:0, t:this.ctx.currentTime+0.06,
+    });
+    const tracks=[ mk(song.lead,'square',0.055), mk(song.bass,'triangle',0.09) ];
+    const tick=()=>{
+      if(!this.ctx) return;
+      const horizon = this.ctx.currentTime + 0.25;
+      tracks.forEach(tr=>{
+        while(tr.t < horizon){
+          const n = tr.seq[tr.idx];
+          if(n.f) this.tone(tr.type, n.f, tr.t, Math.min(n.d*0.92, n.d), tr.vol);
+          tr.t += n.d;
+          tr.idx = (tr.idx+1)%tr.seq.length;
+        }
+      });
+    };
+    tick();
+    this.bgm = { name, timer:setInterval(tick, 80) };
+  }
+  stopBgm(){
+    if(this.bgm){ clearInterval(this.bgm.timer); this.bgm=null; }
+  }
+
+  // ---- ジングル（勝利・レベルアップ）: BGMを止めて演奏 ----
+  jingle(name){
+    this.want = null;
+    if(!this.ctx) return;
+    this.lastJingle = name;
+    this.stopBgm();
+    const t0=this.ctx.currentTime+0.03;
+    (JINGLES[name]||[]).forEach(([n,at,dur])=>{
+      this.tone('square', freq(n), t0+at, dur, 0.07);
+      this.tone('triangle', freq(n)/2, t0+at, dur, 0.08);
+    });
+  }
+
+  // ---- 効果音 ----
+  sfx(name){
+    if(!this.ctx) return;
+    this.lastSfx = name;
+    const t=this.ctx.currentTime+0.01;
+    switch(name){
+      case 'hit':       // 攻撃ヒット
+        this.noise(t,0.13,0.35,1400);
+        this.tone('square',190,t,0.13,0.22,70);
+        break;
+      case 'crit':      // 会心の一撃
+        this.noise(t,0.24,0.5,2200);
+        this.tone('square',280,t,0.26,0.28,45);
+        break;
+      case 'miss':      // ミス・かわす
+        this.noise(t,0.16,0.16,5000);
+        break;
+      case 'phit':      // プレイヤー被ダメージ
+        this.tone('square',120,t,0.22,0.26,45);
+        this.noise(t,0.16,0.3,700);
+        break;
+      case 'spell':     // 攻撃呪文
+        this.tone('square',330,t,0.09,0.18);
+        this.tone('square',495,t+0.08,0.09,0.18);
+        this.tone('square',740,t+0.16,0.16,0.18);
+        this.noise(t+0.16,0.2,0.15,3000);
+        break;
+      case 'heal':      // 回復
+        this.tone('sine',523,t,0.1,0.2);
+        this.tone('sine',659,t+0.09,0.1,0.2);
+        this.tone('sine',784,t+0.18,0.24,0.2);
+        break;
+      case 'encounter': // エンカウント
+        for(let i=0;i<3;i++){
+          this.tone('square',220,t+i*0.11,0.06,0.2);
+          this.tone('square',311,t+i*0.11+0.055,0.06,0.2);
+        }
+        break;
+      case 'flee':      // 逃走
+        this.tone('square',620,t,0.3,0.16,140);
+        break;
+    }
+  }
+}
+
+RPG.audio = new AudioSys();
+})();
+</script>
+<script>
 // キーボード & タッチ入力
 (function(){
 window.RPG = window.RPG || {};
@@ -1033,14 +1254,17 @@ RPG.runBattle = async function(game, enemyId){
         acted = true;
         await ui.message(s.name+'の こうげき!');
         if(Math.random() < 1/16){
+          RPG.audio.sfx('miss');
           await ui.message('ミス! ダメージを あたえられない!');
         }else{
           let dmg, crit = Math.random() < 1/24;
           if(crit){
             dmg = Math.max(1, Math.floor(RPG.atk(s)*(0.8+Math.random()*0.25)));
+            RPG.audio.sfx('crit');
             await ui.message('かいしんの いちげき!!');
           }else{
             dmg = physDamage(RPG.atk(s), E.def);
+            RPG.audio.sfx('hit');
           }
           bs.ehp -= dmg; bs.shake = 0.35;
           await game.sleep(250);
@@ -1061,10 +1285,12 @@ RPG.runBattle = async function(game, enemyId){
         s.mp -= sp.mp;
         await ui.message(s.name+'は '+sp.name+'を となえた!');
         if(sp.type==='heal'){
+          RPG.audio.sfx('heal');
           const v = Math.min(R(sp.power[0],sp.power[1]), RPG.maxhp(s)-s.hp);
           s.hp += v;
           await ui.message(s.name+'の HPが '+v+' かいふくした!');
         }else{
+          RPG.audio.sfx('spell');
           const dmg = R(sp.power[0],sp.power[1]);
           bs.ehp -= dmg; bs.shake = 0.35;
           await game.sleep(250);
@@ -1079,13 +1305,14 @@ RPG.runBattle = async function(game, enemyId){
         const item = RPG.DB.ITEMS[usable[i].id];
         acted = true;
         if(item.type==='heal'){
+          RPG.audio.sfx('heal');
           const v = Math.min(R(item.power[0],item.power[1]), RPG.maxhp(s)-s.hp);
           s.hp += v;
           RPG.removeItem(s, usable[i].id);
           await ui.message(s.name+'は '+item.name+'を つかった!\nHPが '+v+' かいふくした!');
         }else if(item.type==='cure'){
           RPG.removeItem(s, usable[i].id);
-          if(s.poisoned){ s.poisoned=false; await ui.message('どくが きえさった!'); }
+          if(s.poisoned){ s.poisoned=false; RPG.audio.sfx('heal'); await ui.message('どくが きえさった!'); }
           else await ui.message('しかし なにも おこらなかった。');
         }
       }
@@ -1096,7 +1323,7 @@ RPG.runBattle = async function(game, enemyId){
           await ui.message('しかし まわりこまれてしまった!');
         }else{
           const chance = Math.min(0.9, Math.max(0.3, 0.55 + (s.level - E.exp/8)*0.03));
-          if(Math.random() < chance){ result='flee'; break; }
+          if(Math.random() < chance){ RPG.audio.sfx('flee'); result='flee'; break; }
           await ui.message('しかし まわりこまれてしまった!');
         }
       }
@@ -1120,10 +1347,12 @@ RPG.runBattle = async function(game, enemyId){
     if(act==='attack'){
       await ui.message(E.name+'の こうげき!');
       if(Math.random() < 1/20){
+        RPG.audio.sfx('miss');
         await ui.message(s.name+'は ひらりと みをかわした!');
       }else{
         const dmg = physDamage(E.atk, RPG.def(s));
         s.hp = Math.max(0, s.hp-dmg);
+        RPG.audio.sfx('phit');
         bs.flash = 0.3;
         await game.sleep(250);
         await ui.message(s.name+'は '+dmg+'の ダメージを うけた!');
@@ -1135,11 +1364,15 @@ RPG.runBattle = async function(game, enemyId){
     }else if(act==='fire'){
       const dmg = R(E.fire[0], E.fire[1]);
       s.hp = Math.max(0, s.hp-dmg);
+      RPG.audio.sfx('spell');
+      RPG.audio.sfx('phit');
       bs.flash = 0.3;
       await ui.message(E.name+'は ほのおのじゅもんを となえた!\n'+s.name+'は '+dmg+'の ダメージを うけた!');
     }else if(act==='breath'){
       const dmg = R(E.breath[0], E.breath[1]);
       s.hp = Math.max(0, s.hp-dmg);
+      RPG.audio.sfx('spell');
+      RPG.audio.sfx('phit');
       bs.flash = 0.35;
       await ui.message(E.name+'は ほのおを はいた!\n'+s.name+'は '+dmg+'の ダメージを うけた!');
     }
@@ -1149,9 +1382,12 @@ RPG.runBattle = async function(game, enemyId){
 
   // ---- 結果処理 ----
   if(result==='win'){
+    RPG.audio.jingle('victory');
     s.exp += E.exp; s.gold += E.gold;
     await ui.message('けいけんち '+E.exp+' を かくとく!\n'+E.gold+'ゴールドを てにいれた!');
-    for(const m of RPG.checkLevelUp(s)) await ui.message(m);
+    const lvMsgs = RPG.checkLevelUp(s);
+    if(lvMsgs.length) RPG.audio.jingle('levelup'); // レベルアップのファンファーレ
+    for(const m of lvMsgs) await ui.message(m);
   }
 
   game.battle = null;
@@ -1233,6 +1469,10 @@ class Game {
   }
 
   sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+  bgmForMap(){
+    const t=this.map ? this.map.theme : 'field';
+    return t==='town' ? 'town' : t==='cave' ? 'cave' : 'field';
+  }
   async fadeOut(){ for(let a=0;a<=1.01;a+=0.12){ this.fadeAlpha=Math.min(1,a); await this.sleep(16);} }
   async fadeIn(){ for(let a=1;a>=0;a-=0.12){ this.fadeAlpha=Math.max(0,a); await this.sleep(16);} this.fadeAlpha=0; }
 
@@ -1312,6 +1552,7 @@ class Game {
     this.busy=true;
     await this.fadeOut();
     this.loadMap(w.map);
+    RPG.audio.playBgm(this.bgmForMap());
     this.state.x=w.tx; this.state.y=w.ty;
     if(w.dir) this.state.dir=w.dir;
     await this.fadeIn();
@@ -1320,12 +1561,15 @@ class Game {
 
   async encounterFlow(enemyId){
     this.busy=true;
+    RPG.audio.sfx('encounter');
     for(let i=0;i<3;i++){
       this.whiteFlash=true; await this.sleep(70);
       this.whiteFlash=false; await this.sleep(70);
     }
+    RPG.audio.playBgm('battle');
     const r = await RPG.runBattle(this, enemyId);
     if(r==='lose') await this.gameOverFlow();
+    else RPG.audio.playBgm(this.bgmForMap());
     this.busy=false;
   }
 
@@ -1336,6 +1580,7 @@ class Game {
     s.hp=RPG.maxhp(s); s.mp=RPG.maxmp(s); s.poisoned=false;
     this.loadMap('town'); s.x=5; s.y=3; s.dir='up';
     this.mode='field';
+    RPG.audio.playBgm('town');
     await this.fadeIn();
     await this.ui.message('※「おお '+s.name+'よ しんでしまうとは なにごとだ!\nそなたに もういちど きかいを あたえよう。\n(しょじきんが はんぶんに なった)');
   }
@@ -1344,15 +1589,18 @@ class Game {
   async titleFlow(){
     this.mode='title';
     this.state=null; this.map=null; this.battle=null; this.fadeAlpha=0;
+    RPG.audio.playBgm('title');
     while(true){
       const c=await this.ui.choose(['はじめから','つづきから'],{x:168,y:312,cancel:false});
       if(c===1){
         const st=RPG.load();
         if(!st){ await this.ui.message('ぼうけんのしょが みつかりません。'); continue; }
         this.state=st; this.loadMap(st.map); this.mode='field';
+        RPG.audio.playBgm(this.bgmForMap());
         return;
       }
       this.state=RPG.newState(); this.loadMap('town'); this.mode='field';
+      RPG.audio.playBgm('town');
       await this.openingFlow();
       return;
     }
@@ -1369,6 +1617,7 @@ class Game {
     await this.fadeOut();
     this.mode='ending';
     this.fadeAlpha=0;
+    RPG.audio.playBgm('ending');
     await new Promise(res=>{
       const fn=b=>{
         if(b!=='a') return;
@@ -1437,8 +1686,10 @@ class Game {
   async bossFlow(){
     const ui=this.ui, s=this.state;
     await ui.message('※「グオオオ… よくぞ ここまで きたな にんげんよ!\n《ひかりのたから》は わたさぬ!!');
+    RPG.audio.playBgm('battle');
     const r=await RPG.runBattle(this,'boss');
     if(r==='lose'){ await this.gameOverFlow(); return; }
+    RPG.audio.playBgm(this.bgmForMap());
     if(r==='win'){
       s.flags.boss=1;
       RPG.addItem(s,'treasure');
@@ -1485,6 +1736,7 @@ class Game {
           if(s.mp<sp.mp){ await ui.message('MPが たりない!'); continue; }
           if(s.hp>=RPG.maxhp(s)){ await ui.message('HPは まんたんだ。'); continue; }
           s.mp-=sp.mp;
+          RPG.audio.sfx('heal');
           const v=Math.min(RPG.rand(sp.power[0],sp.power[1]), RPG.maxhp(s)-s.hp);
           s.hp+=v;
           await ui.message(sp.name+'を となえた!\nHPが '+v+' かいふくした!');
@@ -1496,12 +1748,13 @@ class Game {
           const id=s.items[i].id, item=RPG.DB.ITEMS[id];
           if(item.type==='heal'){
             if(s.hp>=RPG.maxhp(s)){ await ui.message('HPは まんたんだ。'); continue; }
+            RPG.audio.sfx('heal');
             const v=Math.min(RPG.rand(item.power[0],item.power[1]), RPG.maxhp(s)-s.hp);
             s.hp+=v; RPG.removeItem(s,id);
             await ui.message(item.name+'を つかった!\nHPが '+v+' かいふくした!');
           }else if(item.type==='cure'){
             RPG.removeItem(s,id);
-            if(s.poisoned){ s.poisoned=false; await ui.message('どくが きえさった!'); }
+            if(s.poisoned){ s.poisoned=false; RPG.audio.sfx('heal'); await ui.message('どくが きえさった!'); }
             else await ui.message('しかし なにも おこらなかった。');
           }else if(id==='key'){
             await ui.message('カギのかかった とびらのまえで\nしらべると つかえる。');
@@ -1713,12 +1966,12 @@ class Game {
     g.font="20px 'MS Gothic',monospace"; g.fillStyle='#8090ff';
     g.fillText('― レトロRPG ―', VIEW_W/2, 72);
     g.font="40px 'MS Gothic',monospace"; g.fillStyle='#f0e060';
-    g.fillText('ひかりのたから', VIEW_W/2, 110);
+    g.fillText('ファイナルソード', VIEW_W/2, 110);
     g.imageSmoothingEnabled=false;
     g.drawImage(RPG.SPRITES.hero.down, VIEW_W/2-32, 180, 64, 64);
     g.font="14px 'MS Gothic',monospace"; g.fillStyle='#c0c0c0';
     g.fillText('矢印キー:いどう  Z/Enter:けってい  X/Esc:キャンセル・メニュー', VIEW_W/2, 262);
-    g.fillText('スマホは がめんの ボタンで そうさ', VIEW_W/2, 284);
+    g.fillText('スマホは がめんの ボタンで そうさ  (M:サウンドON/OFF)', VIEW_W/2, 284);
     g.textAlign='left';
   }
 
@@ -1756,6 +2009,13 @@ window.addEventListener('load', ()=>{
   }
   document.querySelectorAll('#pad button[data-b]').forEach(el=>{
     input.bindTouch(el, el.dataset.b);
+  });
+
+  // 最初の操作でオーディオを起動（ブラウザの自動再生制限対応）
+  input.onPress(()=>RPG.audio.unlock());
+  // Mキーでサウンドのミュート切替
+  window.addEventListener('keydown', e=>{
+    if(e.key==='m'||e.key==='M') RPG.audio.toggleMute();
   });
 
   game.start();
