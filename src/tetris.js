@@ -92,8 +92,12 @@
       if (!AC) return;
       actx = new AC();
       master = actx.createGain();
-      master.gain.value = 0.35;
-      master.connect(actx.destination);
+      master.gain.value = 0.7;
+      const comp = actx.createDynamicsCompressor();
+      comp.threshold.value = -18;
+      comp.ratio.value = 6;
+      master.connect(comp);
+      comp.connect(actx.destination);
     }
     function tone(opts) {
       if (muted) return;
@@ -138,38 +142,41 @@
       src.start(now); src.stop(now + dur + 0.02);
     }
     return {
-      move()   { tone({ freq: 320, type: 'triangle', dur: 0.05, vol: 0.12 }); },
-      rotate() { tone({ freq: 520, type: 'triangle', dur: 0.07, vol: 0.16 }); },
-      soft()   { tone({ freq: 240, type: 'sine', dur: 0.03, vol: 0.10 }); },
+      move()   { tone({ freq: 320, type: 'triangle', dur: 0.07, vol: 0.28 }); },
+      rotate() { tone({ freq: 520, type: 'triangle', dur: 0.09, vol: 0.34 }); },
+      soft()   { tone({ freq: 240, type: 'sine', dur: 0.05, vol: 0.22 }); },
       hard() {
-        tone({ freq: 180, freqEnd: 55, type: 'square', dur: 0.14, vol: 0.22 });
-        noise({ dur: 0.09, vol: 0.18, filterFreq: 900 });
+        tone({ freq: 220, freqEnd: 90, type: 'square', dur: 0.16, vol: 0.4 });
+        noise({ dur: 0.1, vol: 0.32, filterFreq: 1100 });
       },
-      lock()   { noise({ dur: 0.05, vol: 0.14, filterFreq: 1600 }); },
-      hold()   { tone({ freq: 380, freqEnd: 200, type: 'sine', dur: 0.1, vol: 0.16 }); },
+      lock()   { noise({ dur: 0.06, vol: 0.24, filterFreq: 1700 }); },
+      hold()   { tone({ freq: 380, freqEnd: 200, type: 'sine', dur: 0.12, vol: 0.3 }); },
       clear(count) {
         const base = 523.25;
         const scale = [1, 1.25, 1.5, 2.0, 2.5];
         const n = Math.min(scale.length, count + 1);
         for (let i = 0; i < n; i++) {
-          tone({ freq: base * scale[i], type: 'triangle', dur: 0.2, vol: 0.22, delay: i * 0.055 });
+          tone({ freq: base * scale[i], type: 'triangle', dur: 0.22, vol: 0.36, delay: i * 0.055 });
         }
         if (count >= 4) {
-          tone({ freq: base * 3, type: 'sine', dur: 0.35, vol: 0.26, delay: 0.22 });
-          noise({ dur: 0.25, vol: 0.12, filterFreq: 4000, delay: 0.22 });
+          tone({ freq: base * 3, type: 'sine', dur: 0.35, vol: 0.4, delay: 0.22 });
+          noise({ dur: 0.25, vol: 0.2, filterFreq: 4000, delay: 0.22 });
         }
       },
       levelUp() {
         [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
-          tone({ freq: f, type: 'triangle', dur: 0.16, vol: 0.24, delay: i * 0.09 });
+          tone({ freq: f, type: 'triangle', dur: 0.18, vol: 0.38, delay: i * 0.09 });
         });
       },
       gameOver() {
         [440, 349.23, 261.63, 196].forEach((f, i) => {
-          tone({ freq: f, type: 'sawtooth', dur: 0.28, vol: 0.22, delay: i * 0.13 });
+          tone({ freq: f, type: 'sawtooth', dur: 0.3, vol: 0.34, delay: i * 0.13 });
         });
       },
-      resume() { ensure(); if (actx && actx.state === 'suspended') actx.resume(); },
+      resume() {
+        ensure();
+        if (actx && actx.state === 'suspended') actx.resume();
+      },
       toggle() { muted = !muted; if (!muted) this.resume(); return muted; },
       isMuted() { return muted; },
     };
@@ -637,6 +644,7 @@
     updateSoundBtn();
     soundBtn.addEventListener('click', (e) => {
       e.preventDefault();
+      Sound.resume();
       Sound.toggle();
       updateSoundBtn();
     });
@@ -681,6 +689,7 @@
     const act = btn.dataset.act;
     const trigger = (ev) => {
       ev.preventDefault();
+      Sound.resume();
       if (gameOver) { reset(); return; }
       switch (act) {
         case 'left': move(-1); break;
