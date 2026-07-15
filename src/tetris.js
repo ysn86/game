@@ -86,6 +86,11 @@
 
   const Sound = (() => {
     let actx = null, master = null, muted = false;
+    const BGM_BPM = 140;
+    const BGM_STEP = 60 / BGM_BPM / 2;
+    const BGM_BASS = [110,0,0,0, 87.31,0,0,0, 130.81,0,0,0, 98,0,0,0];
+    const BGM_LEAD = [440,523.25,659.25,523.25, 349.23,440,523.25,440, 261.63,329.63,392,329.63, 392,493.88,587.33,493.88];
+    let bgmTimer = null, bgmStep = 0, bgmNextTime = 0, bgmPlaying = false;
     function ensure() {
       if (actx) return;
       const AC = window.AudioContext || window.webkitAudioContext;
@@ -141,6 +146,34 @@
       src.connect(filter); filter.connect(gain); gain.connect(master);
       src.start(now); src.stop(now + dur + 0.02);
     }
+    function bgmTick() {
+      if (!actx) return;
+      const lookahead = 0.12;
+      while (bgmNextTime < actx.currentTime + lookahead) {
+        const i = bgmStep % 16;
+        const b = BGM_BASS[i];
+        const l = BGM_LEAD[i];
+        const delay = Math.max(0, bgmNextTime - actx.currentTime);
+        if (b) tone({ freq: b, type: 'sine', dur: BGM_STEP * 3.6, vol: 0.14, delay, attack: 0.02 });
+        if (l) tone({ freq: l, type: 'triangle', dur: BGM_STEP * 0.85, vol: 0.09, delay, attack: 0.006 });
+        noise({ dur: 0.02, vol: 0.025, filterFreq: 7000, delay });
+        bgmNextTime += BGM_STEP;
+        bgmStep++;
+      }
+    }
+    function bgmStart() {
+      if (bgmPlaying || muted) return;
+      ensure();
+      if (!actx) return;
+      bgmPlaying = true;
+      bgmStep = 0;
+      bgmNextTime = actx.currentTime + 0.06;
+      bgmTimer = setInterval(bgmTick, 25);
+    }
+    function bgmStop() {
+      bgmPlaying = false;
+      if (bgmTimer) { clearInterval(bgmTimer); bgmTimer = null; }
+    }
     return {
       move()   { tone({ freq: 320, type: 'triangle', dur: 0.07, vol: 0.28 }); },
       rotate() { tone({ freq: 520, type: 'triangle', dur: 0.09, vol: 0.34 }); },
@@ -172,7 +205,13 @@
         [440, 349.23, 261.63, 196].forEach((f, i) => {
           tone({ freq: f, type: 'sawtooth', dur: 0.3, vol: 0.34, delay: i * 0.13 });
         });
+        tone({ freq: 130.81, type: 'sine', dur: 0.6, vol: 0.3, delay: 0.5, attack: 0.02 });
+        noise({ dur: 0.5, vol: 0.22, filterFreq: 500, delay: 0.5 });
       },
+      bgmStart,
+      bgmStop,
+      isBgmPlaying() { return bgmPlaying; },
+      isReady() { return !!(actx && actx.state === 'running'); },
       resume() {
         ensure();
         if (actx && actx.state === 'suspended') actx.resume();
@@ -241,6 +280,8 @@
     };
     if (collides(piece, 0, 0, piece.rot)) {
       gameOver = true;
+      Sound.bgmStop();
+      Sound.gameOver();
       showOverlay('GAME OVER', `SCORE ${score}  /  Press ENTER for restart`);
     }
     return piece;
@@ -363,6 +404,7 @@
     clearLines();
     if (current.y < HIDDEN_ROWS) {
       gameOver = true;
+      Sound.bgmStop();
       Sound.gameOver();
       showOverlay('GAME OVER', `SCORE ${score}  /  Press ENTER for restart`);
       return;
@@ -610,6 +652,8 @@
     drawHold();
     draw();
     hideOverlay();
+    Sound.bgmStop();
+    if (Sound.isReady() && !Sound.isMuted() && !gameOver) Sound.bgmStart();
   }
 
   function loop(t) {
@@ -640,6 +684,15 @@
     soundBtn.textContent = Sound.isMuted() ? '♪ OFF' : '♪ ON';
     soundBtn.setAttribute('aria-pressed', String(Sound.isMuted()));
   }
+  function startAudio() {
+    Sound.resume();
+    if (!gameOver && !paused && !Sound.isMuted()) Sound.bgmStart();
+  }
+  function applyMuteToBgm() {
+    if (Sound.isMuted()) Sound.bgmStop();
+    else if (!gameOver && !paused) Sound.bgmStart();
+  }
+
   if (soundBtn) {
     updateSoundBtn();
     soundBtn.addEventListener('click', (e) => {
@@ -647,11 +700,12 @@
       Sound.resume();
       Sound.toggle();
       updateSoundBtn();
+      applyMuteToBgm();
     });
   }
 
   window.addEventListener('keydown', (e) => {
-    Sound.resume();
+    startAudio();
     if (['ArrowLeft','ArrowRight','ArrowDown','ArrowUp',' ','Space'].includes(e.key)) e.preventDefault();
     if (gameOver) {
       if (e.key === 'Enter') reset();
@@ -668,18 +722,19 @@
       case 'c': case 'C': case 'Shift': doHold(); break;
       case 'p': case 'P':
         paused = !paused;
-        if (paused) showOverlay('PAUSED', 'Press P to resume');
-        else hideOverlay();
+        if (paused) { showOverlay('PAUSED', 'Press P to resume'); Sound.bgmStop(); }
+        else { hideOverlay(); if (!Sound.isMuted()) Sound.bgmStart(); }
         break;
       case 'm': case 'M':
         Sound.toggle(); updateSoundBtn();
+        applyMuteToBgm();
         break;
       case 'Enter':
-        if (paused) { paused = false; hideOverlay(); }
+        if (paused) { paused = false; hideOverlay(); if (!Sound.isMuted()) Sound.bgmStart(); }
         break;
     }
   }, { passive: false });
-  window.addEventListener('pointerdown', () => Sound.resume(), { once: true });
+  window.addEventListener('pointerdown', () => startAudio(), { once: true });
 
   window.addEventListener('keyup', (e) => {
     if (e.key === 'ArrowDown') softDropping = false;
@@ -689,7 +744,7 @@
     const act = btn.dataset.act;
     const trigger = (ev) => {
       ev.preventDefault();
-      Sound.resume();
+      startAudio();
       if (gameOver) { reset(); return; }
       switch (act) {
         case 'left': move(-1); break;
