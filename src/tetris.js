@@ -289,40 +289,122 @@
     return piece.y + dy;
   }
 
-  function drawCell(g, x, y, color, alpha) {
-    const px = x * CELL;
-    const py = y * CELL;
+  function hexToRgb(h) {
+    const n = parseInt(h.slice(1), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  function mix(hex, target, amt) {
+    const [r, g, b] = hexToRgb(hex);
+    const rr = Math.round(r + (target[0] - r) * amt);
+    const gg = Math.round(g + (target[1] - g) * amt);
+    const bb = Math.round(b + (target[2] - b) * amt);
+    return `rgb(${rr}, ${gg}, ${bb})`;
+  }
+  const lighten = (c, a) => mix(c, [255, 255, 255], a);
+  const darken  = (c, a) => mix(c, [0, 0, 0], a);
+
+  function roundRectPath(g, x, y, w, h, r) {
+    const rr = Math.min(r, w / 2, h / 2);
+    g.beginPath();
+    if (g.roundRect) { g.roundRect(x, y, w, h, rr); return; }
+    g.moveTo(x + rr, y);
+    g.lineTo(x + w - rr, y);
+    g.arcTo(x + w, y, x + w, y + rr, rr);
+    g.lineTo(x + w, y + h - rr);
+    g.arcTo(x + w, y + h, x + w - rr, y + h, rr);
+    g.lineTo(x + rr, y + h);
+    g.arcTo(x, y + h, x, y + h - rr, rr);
+    g.lineTo(x, y + rr);
+    g.arcTo(x, y, x + rr, y, rr);
+    g.closePath();
+  }
+
+  function drawCell(g, x, y, color, size) {
+    const CS = size || CELL;
+    const px = x * CS;
+    const py = y * CS;
+    const inset = Math.max(1, CS * 0.06);
+    const r = Math.max(2, CS * 0.22);
+    const w = CS - inset * 2;
+    const h = CS - inset * 2;
+
     g.save();
-    if (alpha !== undefined) g.globalAlpha = alpha;
+    g.shadowColor = color;
+    g.shadowBlur = CS * 0.45;
+    const grad = g.createLinearGradient(px, py, px + CS, py + CS);
+    grad.addColorStop(0, lighten(color, 0.45));
+    grad.addColorStop(0.55, color);
+    grad.addColorStop(1, darken(color, 0.4));
+    g.fillStyle = grad;
+    roundRectPath(g, px + inset, py + inset, w, h, r);
+    g.fill();
+    g.restore();
+
+    g.save();
+    g.strokeStyle = 'rgba(255,255,255,0.55)';
+    g.lineWidth = Math.max(1, CS * 0.06);
+    roundRectPath(g, px + inset * 2, py + inset * 2, w - inset * 2, h - inset * 2, r * 0.65);
+    g.stroke();
+    g.restore();
+
+    g.save();
+    g.globalAlpha = 0.5;
+    const shine = g.createRadialGradient(
+      px + CS * 0.32, py + CS * 0.28, CS * 0.02,
+      px + CS * 0.32, py + CS * 0.28, CS * 0.35
+    );
+    shine.addColorStop(0, 'rgba(255,255,255,0.9)');
+    shine.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = shine;
+    roundRectPath(g, px + inset, py + inset, w, h, r);
+    g.fill();
+    g.restore();
+  }
+
+  function drawGhost(g, x, y, color) {
+    const px = x * CELL, py = y * CELL;
+    const r = Math.max(2, CELL * 0.22);
+    const inset = Math.max(2, CELL * 0.12);
+    g.save();
+    g.strokeStyle = color;
+    g.globalAlpha = 0.55;
+    g.lineWidth = Math.max(1.5, CELL * 0.08);
+    g.setLineDash([Math.max(3, CELL * 0.18), Math.max(2, CELL * 0.12)]);
+    roundRectPath(g, px + inset, py + inset, CELL - inset * 2, CELL - inset * 2, r * 0.7);
+    g.stroke();
+    g.setLineDash([]);
+    g.globalAlpha = 0.08;
     g.fillStyle = color;
-    g.fillRect(px, py, CELL, CELL);
-    g.fillStyle = 'rgba(255,255,255,.18)';
-    g.fillRect(px, py, CELL, Math.max(2, CELL * 0.14));
-    g.fillStyle = 'rgba(0,0,0,.22)';
-    g.fillRect(px, py + CELL - Math.max(2, CELL * 0.14), CELL, Math.max(2, CELL * 0.14));
-    g.strokeStyle = 'rgba(0,0,0,.35)';
-    g.lineWidth = 1;
-    g.strokeRect(px + .5, py + .5, CELL - 1, CELL - 1);
+    g.fill();
     g.restore();
   }
 
   function drawBoardBackground() {
-    ctx.fillStyle = COLORS.G;
-    ctx.fillRect(0, 0, boardCanvas.width, boardCanvas.height);
-    ctx.strokeStyle = 'rgba(255,255,255,.04)';
+    const W = boardCanvas.width, H = boardCanvas.height;
+    const bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, '#151d47');
+    bg.addColorStop(1, '#0d1330');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = 'rgba(255,255,255,.05)';
     ctx.lineWidth = 1;
     for (let x = 1; x < COLS; x++) {
       ctx.beginPath();
       ctx.moveTo(x * CELL + .5, 0);
-      ctx.lineTo(x * CELL + .5, boardCanvas.height);
+      ctx.lineTo(x * CELL + .5, H);
       ctx.stroke();
     }
     for (let y = 1; y < ROWS; y++) {
       ctx.beginPath();
       ctx.moveTo(0, y * CELL + .5);
-      ctx.lineTo(boardCanvas.width, y * CELL + .5);
+      ctx.lineTo(W, y * CELL + .5);
       ctx.stroke();
     }
+    const vign = ctx.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.75);
+    vign.addColorStop(0, 'rgba(0,0,0,0)');
+    vign.addColorStop(1, 'rgba(0,0,0,0.35)');
+    ctx.fillStyle = vign;
+    ctx.fillRect(0, 0, W, H);
   }
 
   function draw() {
@@ -340,7 +422,7 @@
         for (let c = 0; c < s[r].length; c++) {
           if (!s[r][c]) continue;
           const yy = gy + r - HIDDEN_ROWS;
-          if (yy >= 0) drawCell(ctx, current.x + c, yy, COLORS[current.type], 0.22);
+          if (yy >= 0) drawGhost(ctx, current.x + c, yy, COLORS[current.type]);
         }
       }
       for (let r = 0; r < s.length; r++) {
@@ -374,21 +456,15 @@
     const cell = Math.min(canvas.width / (w + 2), canvas.height / (h + 2));
     const offX = (canvas.width - w * cell) / 2;
     const offY = (canvas.height - h * cell) / 2;
+    g.save();
+    g.translate(offX, offY);
     for (let r = minR; r <= maxR; r++) {
       for (let c = minC; c <= maxC; c++) {
         if (!s[r][c]) continue;
-        const px = offX + (c - minC) * cell;
-        const py = offY + (r - minR) * cell;
-        g.fillStyle = COLORS[type];
-        g.fillRect(px, py, cell, cell);
-        g.fillStyle = 'rgba(255,255,255,.18)';
-        g.fillRect(px, py, cell, Math.max(2, cell * 0.14));
-        g.fillStyle = 'rgba(0,0,0,.22)';
-        g.fillRect(px, py + cell - Math.max(2, cell * 0.14), cell, Math.max(2, cell * 0.14));
-        g.strokeStyle = 'rgba(0,0,0,.35)';
-        g.strokeRect(px + .5, py + .5, cell - 1, cell - 1);
+        drawCell(g, c - minC, r - minR, COLORS[type], cell);
       }
     }
+    g.restore();
   }
 
   function drawNext() { drawMini(nctx, nextCanvas, queue[0]); }
