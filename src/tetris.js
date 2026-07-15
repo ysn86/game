@@ -84,6 +84,97 @@
   };
   const TYPES = ['I','O','T','S','Z','J','L'];
 
+  const Sound = (() => {
+    let actx = null, master = null, muted = false;
+    function ensure() {
+      if (actx) return;
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      actx = new AC();
+      master = actx.createGain();
+      master.gain.value = 0.35;
+      master.connect(actx.destination);
+    }
+    function tone(opts) {
+      if (muted) return;
+      ensure(); if (!actx) return;
+      const {
+        freq, type = 'sine', dur = 0.1, vol = 0.3,
+        freqEnd = null, attack = 0.004, delay = 0,
+      } = opts;
+      const now = actx.currentTime + delay;
+      const osc = actx.createOscillator();
+      const gain = actx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, now);
+      if (freqEnd !== null) {
+        osc.frequency.exponentialRampToValueAtTime(Math.max(1, freqEnd), now + dur);
+      }
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(vol, now + attack);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+      osc.connect(gain); gain.connect(master);
+      osc.start(now); osc.stop(now + dur + 0.02);
+    }
+    function noise(opts) {
+      if (muted) return;
+      ensure(); if (!actx) return;
+      const { dur = 0.1, vol = 0.25, filterFreq = 1500, delay = 0 } = opts;
+      const now = actx.currentTime + delay;
+      const n = Math.max(1, Math.floor(actx.sampleRate * dur));
+      const buf = actx.createBuffer(1, n, actx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < n; i++) data[i] = Math.random() * 2 - 1;
+      const src = actx.createBufferSource();
+      src.buffer = buf;
+      const filter = actx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = filterFreq;
+      const gain = actx.createGain();
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(vol, now + 0.005);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+      src.connect(filter); filter.connect(gain); gain.connect(master);
+      src.start(now); src.stop(now + dur + 0.02);
+    }
+    return {
+      move()   { tone({ freq: 320, type: 'triangle', dur: 0.05, vol: 0.12 }); },
+      rotate() { tone({ freq: 520, type: 'triangle', dur: 0.07, vol: 0.16 }); },
+      soft()   { tone({ freq: 240, type: 'sine', dur: 0.03, vol: 0.10 }); },
+      hard() {
+        tone({ freq: 180, freqEnd: 55, type: 'square', dur: 0.14, vol: 0.22 });
+        noise({ dur: 0.09, vol: 0.18, filterFreq: 900 });
+      },
+      lock()   { noise({ dur: 0.05, vol: 0.14, filterFreq: 1600 }); },
+      hold()   { tone({ freq: 380, freqEnd: 200, type: 'sine', dur: 0.1, vol: 0.16 }); },
+      clear(count) {
+        const base = 523.25;
+        const scale = [1, 1.25, 1.5, 2.0, 2.5];
+        const n = Math.min(scale.length, count + 1);
+        for (let i = 0; i < n; i++) {
+          tone({ freq: base * scale[i], type: 'triangle', dur: 0.2, vol: 0.22, delay: i * 0.055 });
+        }
+        if (count >= 4) {
+          tone({ freq: base * 3, type: 'sine', dur: 0.35, vol: 0.26, delay: 0.22 });
+          noise({ dur: 0.25, vol: 0.12, filterFreq: 4000, delay: 0.22 });
+        }
+      },
+      levelUp() {
+        [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+          tone({ freq: f, type: 'triangle', dur: 0.16, vol: 0.24, delay: i * 0.09 });
+        });
+      },
+      gameOver() {
+        [440, 349.23, 261.63, 196].forEach((f, i) => {
+          tone({ freq: f, type: 'sawtooth', dur: 0.28, vol: 0.22, delay: i * 0.13 });
+        });
+      },
+      resume() { ensure(); if (actx && actx.state === 'suspended') actx.resume(); },
+      toggle() { muted = !muted; if (!muted) this.resume(); return muted; },
+      isMuted() { return muted; },
+    };
+  })();
+
   const boardCanvas = document.getElementById('board');
   const ctx = boardCanvas.getContext('2d');
   const nextCanvas = document.getElementById('next');
@@ -191,12 +282,15 @@
       const table = [0, 100, 300, 500, 800];
       score += table[cleared] * level;
       lines += cleared;
+      const prevLevel = level;
       const newLevel = Math.floor(lines / 10) + 1;
       if (newLevel !== level) {
         level = newLevel;
         dropInterval = computeInterval(level);
       }
       updateHud();
+      Sound.clear(cleared);
+      if (level > prevLevel) Sound.levelUp();
     }
   }
 
@@ -207,7 +301,7 @@
 
   function move(dx) {
     if (!current || gameOver || paused) return;
-    if (!collides(current, dx, 0, current.rot)) current.x += dx;
+    if (!collides(current, dx, 0, current.rot)) { current.x += dx; Sound.move(); }
     draw();
   }
 
@@ -217,8 +311,9 @@
       current.y += 1;
       score += 1;
       updateHud();
+      Sound.soft();
     } else {
-      lock();
+      lock(false);
     }
     draw();
   }
@@ -232,7 +327,8 @@
     }
     score += dist * 2;
     updateHud();
-    lock();
+    Sound.hard();
+    lock(true);
     draw();
   }
 
@@ -247,17 +343,20 @@
         current.x += kx;
         current.y += -ky;
         current.rot = to;
+        Sound.rotate();
         draw();
         return;
       }
     }
   }
 
-  function lock() {
+  function lock(silent) {
     merge(current);
+    if (!silent) Sound.lock();
     clearLines();
     if (current.y < HIDDEN_ROWS) {
       gameOver = true;
+      Sound.gameOver();
       showOverlay('GAME OVER', `SCORE ${score}  /  Press ENTER for restart`);
       return;
     }
@@ -279,6 +378,7 @@
     }
     canHold = false;
     dropAcc = 0;
+    Sound.hold();
     drawHold();
     draw();
   }
@@ -527,8 +627,23 @@
     rafId = requestAnimationFrame(loop);
   }
 
-  const KEY = {};
+  const soundBtn = document.getElementById('soundBtn');
+  function updateSoundBtn() {
+    if (!soundBtn) return;
+    soundBtn.textContent = Sound.isMuted() ? '♪ OFF' : '♪ ON';
+    soundBtn.setAttribute('aria-pressed', String(Sound.isMuted()));
+  }
+  if (soundBtn) {
+    updateSoundBtn();
+    soundBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      Sound.toggle();
+      updateSoundBtn();
+    });
+  }
+
   window.addEventListener('keydown', (e) => {
+    Sound.resume();
     if (['ArrowLeft','ArrowRight','ArrowDown','ArrowUp',' ','Space'].includes(e.key)) e.preventDefault();
     if (gameOver) {
       if (e.key === 'Enter') reset();
@@ -548,11 +663,15 @@
         if (paused) showOverlay('PAUSED', 'Press P to resume');
         else hideOverlay();
         break;
+      case 'm': case 'M':
+        Sound.toggle(); updateSoundBtn();
+        break;
       case 'Enter':
         if (paused) { paused = false; hideOverlay(); }
         break;
     }
   }, { passive: false });
+  window.addEventListener('pointerdown', () => Sound.resume(), { once: true });
 
   window.addEventListener('keyup', (e) => {
     if (e.key === 'ArrowDown') softDropping = false;
