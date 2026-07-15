@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>ひかりのたから - レトロRPG</title>
+<style>
+  html,body{
+    margin:0; padding:0; background:#000; color:#fff;
+    font-family:'MS Gothic','Hiragino Kaku Gothic ProN',monospace;
+    -webkit-user-select:none; user-select:none;
+    touch-action:manipulation;
+  }
+  #wrap{
+    display:flex; flex-direction:column; align-items:center;
+    min-height:100vh; justify-content:center; gap:8px;
+  }
+  canvas{
+    background:#000;
+    image-rendering:pixelated;
+    image-rendering:crisp-edges;
+    width:min(100vw, 640px);
+    max-height:80vh;
+    aspect-ratio:480/448;
+    outline:none;
+  }
+  /* ---- タッチ操作パッド ---- */
+  #pad{
+    display:none;
+    width:min(100vw,640px);
+    justify-content:space-between; align-items:center;
+    padding:4px 12px 16px; box-sizing:border-box;
+  }
+  body.touch #pad{ display:flex; }
+  #dpad{
+    display:grid;
+    grid-template-columns:56px 56px 56px;
+    grid-template-rows:56px 56px 56px;
+  }
+  #pad button{
+    background:#222; color:#eee; border:2px solid #777; border-radius:8px;
+    font-size:20px; font-family:inherit;
+    touch-action:none;
+  }
+  #pad button:active{ background:#555; }
+  #dpad .sp{ visibility:hidden; }
+  #ab{ display:flex; gap:16px; }
+  #ab button{ width:64px; height:64px; border-radius:50%; font-size:22px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="screen" width="480" height="448"></canvas>
+  <div id="pad">
+    <div id="dpad">
+      <button class="sp"></button><button data-b="up">▲</button><button class="sp"></button>
+      <button data-b="left">◀</button><button class="sp"></button><button data-b="right">▶</button>
+      <button class="sp"></button><button data-b="down">▼</button><button class="sp"></button>
+    </div>
+    <div id="ab">
+      <button data-b="b">B</button>
+      <button data-b="a">A</button>
+    </div>
+  </div>
+</div>
+<script src="src/data/database.js"></script>
+<script src="src/data/maps.js"></script>
+<script src="src/sprites.js"></script>
+<script src="src/input.js"></script>
+<script src="src/ui.js"></script>
+<script src="src/state.js"></script>
+<script src="src/battle.js"></script>
+<script src="src/game.js"></script>
+<script src="src/main.js"></script>
+</body>
+</html>
