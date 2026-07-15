@@ -24,13 +24,14 @@ html, body {
   overflow-x: hidden;
 }
 
+/* App is always a phone-shaped frame, centered on any screen size */
 .app {
-  max-width: 900px;
+  max-width: 430px;
   margin: 0 auto;
-  padding: 12px clamp(8px, 2vw, 16px) 24px;
+  padding: 12px 10px 20px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
 }
 
 .topbar {
@@ -42,7 +43,7 @@ html, body {
 }
 .topbar h1 {
   margin: 6px 0 0;
-  font-size: clamp(20px, 4vw, 32px);
+  font-size: clamp(20px, 6vw, 28px);
   letter-spacing: .22em;
   color: var(--accent);
   text-shadow: 0 0 12px rgba(124, 240, 255, .35);
@@ -66,11 +67,12 @@ html, body {
 .sound-btn:hover, .sound-btn:focus-visible { background: rgba(26, 34, 70, .9); outline: none; }
 .sound-btn[aria-pressed="true"] { color: var(--muted); border-color: rgba(139, 147, 184, .3); }
 
+/* Board on top, side info stacked below — the phone layout, always on */
 .stage {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 160px;
-  gap: 14px;
-  align-items: start;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto auto;
+  gap: 10px;
 }
 
 .board-wrap {
@@ -85,7 +87,7 @@ html, body {
 #board {
   width: 100%;
   height: auto;
-  max-height: 78dvh;
+  max-height: 66dvh;
   aspect-ratio: 1 / 2;
   display: block;
   background: var(--grid);
@@ -107,7 +109,7 @@ html, body {
 .overlay.hidden { display: none; }
 .overlay-inner { text-align: center; padding: 20px; }
 .overlay-title {
-  font-size: clamp(24px, 5vw, 40px);
+  font-size: clamp(24px, 7vw, 36px);
   letter-spacing: .18em;
   color: var(--accent);
   margin-bottom: 8px;
@@ -115,11 +117,16 @@ html, body {
 }
 .overlay-sub { color: var(--muted); font-size: 14px; }
 
-.side { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.side {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.2fr;
+  gap: 8px;
+  min-width: 0;
+}
 .panel {
   background: var(--panel);
   border-radius: 10px;
-  padding: 10px;
+  padding: 8px;
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.04);
   min-width: 0;
 }
@@ -132,6 +139,7 @@ html, body {
 #next, #hold {
   width: 100%;
   height: auto;
+  max-height: 100px;
   aspect-ratio: 1 / 1;
   display: block;
   background: var(--panel-2);
@@ -141,7 +149,7 @@ html, body {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  padding: 4px 2px;
+  padding: 2px 2px;
   font-variant-numeric: tabular-nums;
 }
 .stats .row span:first-child {
@@ -149,14 +157,19 @@ html, body {
   font-size: 11px;
   letter-spacing: .16em;
 }
-.stats .row span:last-child { font-size: 18px; font-weight: 700; }
+.stats .row span:last-child { font-size: 16px; font-weight: 700; }
 
+.help {
+  grid-column: 1 / -1;
+}
 .help ul {
   margin: 0;
   padding-left: 16px;
   color: var(--muted);
   font-size: 12px;
-  line-height: 1.7;
+  line-height: 1.6;
+  columns: 2;
+  column-gap: 16px;
 }
 
 .touchpad {
@@ -180,42 +193,19 @@ html, body {
 .tbtn:active { background: var(--panel-2); transform: translateY(1px); }
 .tbtn.drop { grid-column: span 3; background: linear-gradient(180deg, #2a3aa8, #1b2478); }
 
-/* Tablets / small landscape */
-@media (max-width: 720px) {
-  .stage { grid-template-columns: minmax(0, 1fr) 132px; gap: 10px; }
-  .help { display: none; }
-}
-
-/* Phones (portrait) — stack panels under the board */
-@media (max-width: 520px) {
-  .app { gap: 10px; padding-top: 10px; }
-  .stage {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto;
-  }
-  #board { max-height: 62dvh; }
-  .side {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1.2fr;
-    gap: 8px;
-  }
-  .panel { padding: 8px; }
-  #next, #hold { max-height: 96px; }
-  .stats .row { padding: 2px 2px; }
-  .stats .row span:last-child { font-size: 16px; }
-}
-
-/* Very small */
+/* Very small phones */
 @media (max-width: 360px) {
   .side { grid-template-columns: 1fr 1fr; }
   .side .stats { grid-column: span 2; }
+  .help ul { columns: 1; }
 }
 
-/* Landscape phone: keep side panel on the right, shrink board height */
+/* Landscape phone: widen the frame, put info to the right of the board */
 @media (max-height: 520px) and (orientation: landscape) {
-  .app { padding: 8px 12px; gap: 8px; }
+  .app { max-width: 640px; padding: 8px 12px; gap: 8px; }
   .stage { grid-template-columns: minmax(0, 1fr) 140px; grid-template-rows: 1fr; }
   #board { max-height: 92dvh; }
+  .side { grid-template-columns: 1fr; }
   .help { display: none; }
   .touchpad { grid-column: span 2; grid-template-columns: repeat(6, 1fr); }
   .tbtn.drop { grid-column: span 1; }
