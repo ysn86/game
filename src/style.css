@@ -200,6 +200,34 @@ html, body {
   .help ul { columns: 1; }
 }
 
+/* PC / wide screens — spacious side-by-side layout, board left + panel column right */
+@media (min-width: 760px) {
+  .app { max-width: 900px; padding: 20px clamp(12px, 2vw, 24px) 32px; gap: 16px; }
+
+  .topbar h1 { font-size: clamp(24px, 4vw, 32px); }
+
+  .stage {
+    grid-template-columns: minmax(0, 1fr) 200px;
+    grid-template-rows: 1fr;
+    align-items: start;
+    gap: 20px;
+  }
+
+  #board { max-width: 42dvh; } /* keeps height (2x width) <= 84dvh, cells stay square */
+
+  .side {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .panel { padding: 14px; }
+  #next, #hold { max-height: none; }
+  .stats .row { padding: 5px 2px; }
+  .stats .row span:last-child { font-size: 20px; }
+
+  .help ul { columns: 1; font-size: 13px; line-height: 1.8; }
+}
+
 /* Landscape phone: widen the frame, put info to the right of the board */
 @media (max-height: 520px) and (orientation: landscape) {
   .app { max-width: 640px; padding: 8px 12px; gap: 8px; }
