@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0b1020" />
+  <title>Tetris</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230b1020'/%3E%3Cg fill='%237cf0ff'%3E%3Crect x='6' y='6' width='8' height='8'/%3E%3Crect x='14' y='6' width='8' height='8'/%3E%3Crect x='14' y='14' width='8' height='8'/%3E%3Crect x='14' y='22' width='8' height='4'/%3E%3C/g%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="src/style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <h1>TETRIS</h1>
+      <button id="soundBtn" class="sound-btn" type="button" aria-pressed="false" title="M でサウンド切替">♪ ON</button>
+    </header>
+
+    <main class="stage">
+      <section class="board-wrap">
+        <canvas id="board" width="300" height="600" aria-label="tetris board"></canvas>
+        <div id="overlay" class="overlay hidden">
+          <div class="overlay-inner">
+            <div id="overlayTitle" class="overlay-title">GAME OVER</div>
+            <div id="overlaySub" class="overlay-sub">Press ENTER / タップで再スタート</div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="side">
+        <div class="panel">
+          <div class="panel-title">NEXT</div>
+          <canvas id="next" width="120" height="120"></canvas>
+        </div>
+        <div class="panel">
+          <div class="panel-title">HOLD</div>
+          <canvas id="hold" width="120" height="120"></canvas>
+        </div>
+        <div class="panel stats">
+          <div class="row"><span>SCORE</span><span id="score">0</span></div>
+          <div class="row"><span>LINES</span><span id="lines">0</span></div>
+          <div class="row"><span>LEVEL</span><span id="level">1</span></div>
+        </div>
+        <div class="panel help">
+          <div class="panel-title">HOW TO PLAY</div>
+          <ul>
+            <li>← → : 移動</li>
+            <li>↓ : ソフトドロップ</li>
+            <li>Space : ハードドロップ</li>
+            <li>↑ / X : 右回転</li>
+            <li>Z : 左回転</li>
+            <li>C / Shift : ホールド</li>
+            <li>P : 一時停止</li>
+            <li>M : サウンドON/OFF</li>
+          </ul>
+        </div>
+      </aside>
+    </main>
+
+    <nav class="touchpad" aria-label="touch controls">
+      <button class="tbtn" data-act="left">◀</button>
+      <button class="tbtn" data-act="rotate">⟳</button>
+      <button class="tbtn" data-act="right">▶</button>
+      <button class="tbtn" data-act="hold">HOLD</button>
+      <button class="tbtn" data-act="down">▼</button>
+      <button class="tbtn drop" data-act="drop">DROP</button>
+    </nav>
+  </div>
+
+  <script src="src/tetris.js"></script>
+</body>
+</html>
